@@ -32,7 +32,7 @@ def convert_to_pulses(ms: int, bpm_intervals: list):
     return round((ms / (60 / bpm_intervals[interval_index][1])) * 240)
 
 
-def parse_chart_and_audio(song_id: int, convert_to_ogg=True):
+def parse_chart_and_audio(contents_dir, song_id: int, convert_to_ogg=True):
     # initialize template bmson file
     starter_bmson = {
         "version": "1.0.0",
@@ -46,8 +46,6 @@ def parse_chart_and_audio(song_id: int, convert_to_ogg=True):
         "sound_channels": [],
         "bga": {}
     }
-
-    contents_dir = os.path.join("..", "..", "Rhythm Games", "LDJ-2022103100", "contents")
 
     # create output directory if it doesn't exist yet
     output_path = f"{os.path.join('.', 'out', str(song_id))}"
