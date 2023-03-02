@@ -1,0 +1,7 @@
+.idea/
+__pycache__/
+custom/
+out/
+test/
+data.csv
+main.py
