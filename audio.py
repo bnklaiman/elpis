@@ -87,7 +87,7 @@ def get_audio_samples_from_container(song_id: int, container: str, convert_to_og
             if is_preview_file:
                 filename = f"{os.path.join(output_path, f'preview.{audio_extension}')}"
             else:
-                filename = f"{os.path.join(output_path, f'{i:04d}.{audio_extension}')}"
+                filename = f"{os.path.join(output_path, f'{i + 1:04d}.{audio_extension}')}"
 
             with open(filename, 'wb') as outfile:
                 outfile.write(audio_bytes)
@@ -114,11 +114,3 @@ def convert_to_ogg_file(infile: str):
     os.remove(infile)
 
     return str(outfile)
-
-
-# def main():
-#     get_audio_samples_from_container(20003, os.path.join('.', 'test', '20003.2dx'))
-#
-#
-# if __name__ == "__main__":
-#     main()

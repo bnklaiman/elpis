@@ -37,14 +37,14 @@ so don't assume this.
 BK note: as of now, the directory structure is as follows:
 |Index | Chart Difficulty|
 |------|-----------------|
-|0|SP-NORMAL|
-|1|SP-HYPER|
+|0|SP-HYPER|
+|1|SP-NORMAL|
 |2|SP-ANOTHER|
 |3|SP-BEGINNER|
 |4|SP-LEGGENDARIA/BLACK ANOTHER|
 |5|(empty)|
-|6|DP-NORMAL|
-|7|DP-HYPER|
+|6|DP-HYPER|
+|7|DP-NORMAL|
 |8|DP-ANOTHER|
 |9|DP-BEGINNER|
 |10|DP-LEGGENDARIA/BLACK ANOTHER|

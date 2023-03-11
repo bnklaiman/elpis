@@ -21,32 +21,176 @@ columns_to_keys = {
     7: "Scratch"
 }
 
+# initialize template bmson file
+starter_bmson = {
+    "version": "1.0.0",
+    "info": {
+        "init_bpm": 0,
+        "resolution": 240
+    },
+    "lines": [],
+    "bpm_events": [],
+    "stop_events": [],
+    "sound_channels": [],
+    "bga": {}
+}
+
+EIGHT_ZERO_BYTES = b'\x00\x00\x00\x00\x00\x00\x00\x00'
+END_OF_CHART = b'\xFF\xFF\xFF\x7F\x00\x00\x00\x00'
+
 
 # For a specific offset in milliseconds and an array of bpm intervals, convert to pulses (where 1/4 note = 240 pulses)
 def convert_to_pulses(ms: int, bpm_intervals: list):
     interval_index = len(bpm_intervals) - 1
     # find current interval
-    while ms < bpm_intervals[interval_index][0]:
-        interval_index -= 1
+    # TODO: handle duplicate offsets
+    if len(bpm_intervals) == 1:
+        interval_index = 0
+    else:
+        while ms < bpm_intervals[interval_index][0]:
+            interval_index -= 1
 
     return round((ms / (60 / bpm_intervals[interval_index][1])) * 240)
 
 
-def parse_chart_and_audio(contents_dir, song_id: int, convert_to_ogg=True):
-    # initialize template bmson file
-    starter_bmson = {
-        "version": "1.0.0",
-        "info": {
-            "init_bpm": 0,
-            "resolution": 240
-        },
-        "lines": [],
-        "bpm_events": [],
-        "stop_events": [],
-        "sound_channels": [],
-        "bga": {}
-    }
+def parse_chart(song_id: int, chart_file, chart_offset: int, dir_index: int):
+    data = pd.read_csv("data.csv", encoding="utf-8")
+    data = data.to_dict('records')
 
+    for entry in data:
+        if entry["ID"] == int(f"{song_id:05d}"):
+            print(f"Song entry {entry['ID']} found: \"{entry['ASCII TITLE']}\"")
+            data = entry
+
+    # Since data has been reassigned, if nothing changed the right entry is not found
+    if len(data) > 16:
+        sys.exit("Song entry must exist in data file but doesn't, exiting...")
+
+    bmson = starter_bmson
+    bmson["info"]["title"] = sanitize_input(data["TITLE"])
+    bmson["info"]["subtitle"] = sanitize_input(data["SUBTITLE"])
+    bmson["info"]["artist"] = sanitize_input(data["ARTIST"])
+    bmson["info"]["genre"] = sanitize_input(data["GENRE"])
+    bmson["info"]["mode_hint"] = "beat-7k" if dir_index > 6 else "beat-14k"
+
+    if dir_index == 0:
+        bmson["info"]["chart_name"] = "HYPER"
+        bmson["info"]["level"] = int(data["SP-H"])
+    elif dir_index == 1:
+        bmson["info"]["chart_name"] = "NORMAL"
+        bmson["info"]["level"] = int(data["SP-N"])
+    elif dir_index == 2:
+        bmson["info"]["chart_name"] = "ANOTHER"
+        bmson["info"]["level"] = int(data["SP-A"])
+    elif dir_index == 3:
+        bmson["info"]["chart_name"] = "BEGINNER"
+        bmson["info"]["level"] = int(data["SP-B"])
+    elif dir_index == 4:
+        bmson["info"]["chart_name"] = "LEGGENDARIA"
+        bmson["info"]["level"] = int(data["SP-L"])
+    elif dir_index == 6:
+        bmson["info"]["chart_name"] = "HYPER"
+        bmson["info"]["level"] = int(data["DP-H"])
+    elif dir_index == 7:
+        bmson["info"]["chart_name"] = "NORMAL"
+        bmson["info"]["level"] = int(data["DP-N"])
+    elif dir_index == 8:
+        bmson["info"]["chart_name"] = "ANOTHER"
+        bmson["info"]["level"] = int(data["DP-A"])
+    elif dir_index == 10:
+        bmson["info"]["chart_name"] = "LEGGENDARIA"
+        bmson["info"]["level"] = int(data["DP-L"])
+
+    audio_ext = bmson["info"]["preview_music"]
+    audio_ext = audio_ext[len(audio_ext) - 3:]
+
+    # initialize bpm and bpm intervals
+    bpm_intervals = []
+
+    chart_file.seek(chart_offset)
+    event = chart_file.read(8)
+    while event and END_OF_CHART not in event:
+        event_offset = (event[3] << 24) | (event[2] << 16) | (event[1] << 8) | (event[0])
+        event_type = event[4]
+        event_param = event[5]
+        event_value = (event[7] << 8) | (event[6])
+
+        if event_type == 0x04:
+            # handle event type 04 (bpm change)
+            bpm = round(event_value / event_param)
+            bpm_intervals.append([event_offset, bpm])
+            print(f"Event at {event_offset}ms: BPM set to {(event_value // event_param)}")
+            if bmson["info"]["init_bpm"] == 0:
+                bmson["info"]["init_bpm"] = bpm
+            else:
+                bmson["bpm_events"].append({
+                    "y": convert_to_pulses(event_offset, bpm_intervals),
+                    "bpm": bpm
+                })
+
+        event = chart_file.read(8)
+
+    print("End of chart reached.")
+
+    # ready to parse chart
+    chart_file.seek(chart_offset)
+    event = chart_file.read(8)
+    while event and END_OF_CHART not in event:
+        event_offset = (event[3] << 24) | (event[2] << 16) | (event[1] << 8) | (event[0])
+        event_type = event[4]
+        event_param = event[5]
+        event_value = (event[7] << 8) | (event[6])
+
+        if event_type == 0x00:
+            # handle event type 00 (visible note on playfield for P1)
+            print(
+                f"Event at {event_offset}ms: Visible note for P1: {columns_to_keys[event_param]}{', hold for ' + str(event_value) + 'ms' if event_value > 0 else ''}")
+        elif event_type == 0x01:
+            # handle event type 01 (visible note on playfield for P2)
+            print(
+                f"Event at {event_offset}ms: Visible note for P2: {columns_to_keys[event_param]}{', hold for ' + str(event_value) + 'ms' if event_value > 0 else ''}")
+        elif event_type == 0x02:
+            # handle event type 02 (sample change for P1)
+            print(
+                f"Event at {event_offset}ms: Sample change for P1: {columns_to_keys[event_param]} => sample {event_value}")
+        elif event_type == 0x03:
+            # handle event type 03 (sample change for P2)
+            print(
+                f"Event at {event_offset}ms: Sample change for P2: {columns_to_keys[event_param]} => sample {event_value}")
+        elif event_type == 0x04:
+            # we already did this, so ignore
+            print(f"Event at {event_offset}ms: BPM change, ignoring.")
+        elif event_type == 0x05:
+            # handle (or more specifically, don't handle) event type 05 (meter info)
+            print(f"Event at {event_offset}ms: Meter information, ignoring.")
+        elif event_type == 0x06:
+            # handle event type 06 (end of song)
+            print(f"Event at {event_offset}ms: End of song, ignoring.")
+            break
+        elif event_type == 0x07:
+            # handle event type 07 (background sample)
+            print(f"Event at {event_offset}ms: Background sample {event_value}")
+        elif event_type == 0x08:
+            # handle (or more specifically, don't handle) event type 08 (timing window info)
+            print(f"Event at {event_offset}ms: Timing window information, ignoring.")
+        elif event_type == 0x0C:
+            # handle event type 0C (measure bar)
+            print(f"Event at {event_offset}ms: Measure bar for P{event_param + 1}")
+            # bmson["lines"].append({"k": 0, "y": convert_to_pulses(file_offset, bpm_intervals)})
+        elif event_type == 0x10:
+            # handle event type 10 (note count)
+            print(f"Event at {event_offset}ms: Note count for P{event_param + 1}: {event_value}")
+        else:
+            # handle unknown events
+            sys.exit(
+                f"Unknown event at {event_offset}ms, type {hex(event_type)}, param {hex(event_param)} and value {hex(event_value)}. Time to debug and figure it out!")
+
+        event = chart_file.read(8)
+
+    print("End of chart reached.")
+
+
+def parse_all_charts_and_audio(contents_dir, song_id: int, convert_to_ogg=True):
     # create output directory if it doesn't exist yet
     output_path = f"{os.path.join('.', 'out', str(song_id))}"
     if os.path.exists(output_path):
@@ -145,158 +289,14 @@ def parse_chart_and_audio(contents_dir, song_id: int, convert_to_ogg=True):
     # parse chart directory entries
     with open(chart_path, 'rb') as chart_file:
         chart_directory = []
-        offset = -4
+        file_offset = 0
         for i in range(12):
-            directory_pair = {}
-            offset += 4
-            chart_file.seek(offset)
-            directory_pair["offset"] = struct.unpack("<I", chart_file.read(4))[0]
-            offset += 4
-            chart_file.seek(offset)
-            directory_pair["length"] = struct.unpack("<I", chart_file.read(4))[0]
-            chart_directory.append(directory_pair)
-
-        def parse_chart(dir_index: int):
-            data = pd.read_csv("data.csv", encoding="utf-8")
-            data = data.to_dict('records')
-
-            for entry in data:
-                if entry["ID"] == int(f"{song_id:05d}"):
-                    print(f"Song entry {entry['ID']} found: \"{entry['ASCII TITLE']}\"")
-                    data = entry
-
-            # Since data has been reassigned, if nothing changed the right entry is not found
-            if len(data) > 16:
-                sys.exit("Song entry must exist in data file but doesn't, exiting...")
-
-            bmson = starter_bmson
-            bmson["info"]["title"] = sanitize_input(data["TITLE"])
-            bmson["info"]["subtitle"] = sanitize_input(data["SUBTITLE"])
-            bmson["info"]["artist"] = sanitize_input(data["ARTIST"])
-            bmson["info"]["genre"] = sanitize_input(data["GENRE"])
-            bmson["info"]["mode_hint"] = "beat-7k" if dir_index > 6 else "beat-14k"
-
-            if dir_index == 0:
-                bmson["info"]["chart_name"] = "NORMAL"
-                bmson["info"]["level"] = int(data["SP-N"])
-            elif dir_index == 1:
-                bmson["info"]["chart_name"] = "HYPER"
-                bmson["info"]["level"] = int(data["SP-H"])
-            elif dir_index == 2:
-                bmson["info"]["chart_name"] = "ANOTHER"
-                bmson["info"]["level"] = int(data["SP-A"])
-            elif dir_index == 3:
-                bmson["info"]["chart_name"] = "BEGINNER"
-                bmson["info"]["level"] = int(data["SP-B"])
-            elif dir_index == 4:
-                bmson["info"]["chart_name"] = "LEGGENDARIA"
-                bmson["info"]["level"] = int(data["SP-L"])
-            elif dir_index == 6:
-                bmson["info"]["chart_name"] = "NORMAL"
-                bmson["info"]["level"] = int(data["DP-N"])
-            elif dir_index == 7:
-                bmson["info"]["chart_name"] = "HYPER"
-                bmson["info"]["level"] = int(data["DP-H"])
-            elif dir_index == 8:
-                bmson["info"]["chart_name"] = "ANOTHER"
-                bmson["info"]["level"] = int(data["DP-A"])
-            elif dir_index == 10:
-                bmson["info"]["chart_name"] = "LEGGENDARIA"
-                bmson["info"]["level"] = int(data["DP-L"])
-
-            audio_ext = bmson["info"]["preview_music"]
-            audio_ext = audio_ext[len(audio_ext) - 3:]
-
-            chart_file_length = chart_file.__sizeof__()
-
-            # initialize bpm and bpm intervals
-            bpm_intervals = []
-            for j in range(chart_directory[dir_index]["offset"], chart_directory[dir_index]["length"], 8):
-                _offset = j
-                chart_file.seek(_offset)
-                event_offset = struct.unpack("<I", chart_file.read(4))[0]
-                chart_file.seek(_offset + 4)
-                event_type = struct.unpack("B", chart_file.read(1))[0]
-                chart_file.seek(_offset + 5)
-                event_param = struct.unpack("B", chart_file.read(1))[0]
-                chart_file.seek(_offset + 6)
-                event_value = struct.unpack("<H", chart_file.read(2))[0]
-
-                if event_type == 0x04:
-                    # handle event type 04 (bpm change)
-                    bpm = round(event_value / event_param)
-                    print(f"Event at {event_offset}ms: BPM change => {(event_value // event_param)}")
-                    if bmson["info"]["init_bpm"] == 0:
-                        bmson["info"]["init_bpm"] = bpm
-                    else:
-                        bmson["bpm_events"].append({
-                            "y": convert_to_pulses(event_offset, bpm_intervals),
-                            "bpm": bpm
-                        })
-                    bpm_intervals.append([event_offset, bpm])
-
-            # ready to parse chart
-            for j in range(chart_directory[dir_index]["offset"], chart_directory[dir_index]["length"], 8):
-                _offset = j
-                chart_file.seek(_offset)
-                event_offset = struct.unpack("<I", chart_file.read(4))[0]
-                chart_file.seek(_offset + 4)
-                event_type = struct.unpack("B", chart_file.read(1))[0]
-                chart_file.seek(_offset + 5)
-                event_param = struct.unpack("B", chart_file.read(1))[0]
-                chart_file.seek(_offset + 6)
-                event_value = struct.unpack("<H", chart_file.read(2))[0]
-
-                if event_type == 0x00:
-                    # handle event type 00 (visible note on playfield for P1)
-                    print(f"Event at {event_offset}ms: Visible note for P1: {columns_to_keys[event_param]}{', hold for ' + event_value + 'ms' if event_value > 0 else ''}")
-                elif event_type == 0x01:
-                    # handle event type 01 (visible note on playfield for P2)
-                    print(f"Event at {event_offset}ms: Visible note for P2: {columns_to_keys[event_param]}{', hold for ' + event_value + 'ms' if event_value > 0 else ''}")
-                elif event_type == 0x02:
-                    # handle event type 02 (sample change for P1)
-                    print(f"Event at {event_offset}ms: Sample change for P1: {columns_to_keys[event_param]} => sample {event_value}")
-                elif event_type == 0x03:
-                    # handle event type 03 (sample change for P2)
-                    print(f"Event at {event_offset}ms: Sample change for P2: {columns_to_keys[event_param]} => sample {event_value}")
-                elif event_type == 0x04:
-                    # we already did this, so ignore
-                    print(f"Event at {event_offset}ms: BPM change, ignoring.")
-                elif event_type == 0x05:
-                    # handle (or more specifically, don't handle) event type 05 (meter info)
-                    print(f"Event at {event_offset}ms: Meter information, ignoring.")
-                elif event_type == 0x06:
-                    # handle (or more specifically, don't handle) event type 06 (end of song)
-                    print(f"Event at {event_offset}ms: End of song, ignoring.")
-                elif event_type == 0x07:
-                    # handle event type 07 (background sample)
-                    print(f"Event at {event_offset}ms: Background sample {event_value}")
-                elif event_type == 0x08:
-                    # handle (or more specifically, don't handle) event type 08 (timing window info)
-                    print(f"Event at {event_offset}ms: Timing window information, ignoring.")
-                elif event_type == 0x0C:
-                    # handle event type 0C (measure bar)
-                    print(f"Event at {event_offset}ms: Measure bar for P{event_param + 1}")
-                    bmson["lines"].append({"k": 0, "y": convert_to_pulses(offset, bpm_intervals)})
-                elif event_type == 0x10:
-                    # handle event type 10 (note count)
-                    print(f"Event at {event_offset}ms: Note count for P{event_param + 1}: {event_value}")
-                else:
-                    # handle unknown events
-                    sys.exit(f"Unknown event at {event_offset}ms, type {hex(event_type)}, param {event_param} and value {event_value}. Time to debug and figure it out!")
-            return None
+            chart_file.seek(file_offset)
+            chart_directory.append(struct.unpack("<I", chart_file.read(4))[0])
+            file_offset += 8
 
         # iterate over all charts found inside chart file
         # but for now, we start with the SP-NORMAL chart
-        # for i in range(len(chart_directory)):
-        #     if chart_directory[i]["offset"] != 0 and chart_directory[i]["length"] != 0:
-        #         parse_chart(i)
-        parse_chart(0)
-
-
-# def main():
-#     parse_chart_and_audio(20003, True)
-#
-#
-# if __name__ == "__main__":
-#     main()
+        for i in range(len(chart_directory)):
+            if chart_directory[i] != 0:
+                parse_chart(song_id, chart_file, chart_directory[i], i)
