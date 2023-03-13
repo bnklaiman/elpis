@@ -4,10 +4,11 @@ import subprocess
 import sys
 
 
-def get_audio_samples_from_container(song_id: int, container: str, convert_to_ogg=True):
+def get_audio_samples_from_container(song_id: int, container: str):
     print(f"Looking at file {container} in song id #{song_id}")
 
-    [container_id, container_extension] = os.path.basename(container).split(".")
+    [container_id, container_extension] = os.path.basename(
+        container).split(".")
 
     # if preview file detected, remove "_pre" from the path name
     is_preview_file = False
@@ -28,7 +29,7 @@ def get_audio_samples_from_container(song_id: int, container: str, convert_to_og
         print(f"{os.path.basename(infile.name)} loaded successfully.")
 
         # create output directory if it doesn't exist yet
-        output_path = f"{os.path.join('.', 'out', str(song_id), str(container_id))}"
+        output_path = f"{os.path.join('.', 'out', str(song_id))}"
         if os.path.exists(output_path):
             print(f"Output path {output_path} already exists, using it.")
         else:
@@ -87,7 +88,7 @@ def get_audio_samples_from_container(song_id: int, container: str, convert_to_og
             if is_preview_file:
                 filename = f"{os.path.join(output_path, f'preview.{audio_extension}')}"
             else:
-                filename = f"{os.path.join(output_path, f'{i + 1:04d}.{audio_extension}')}"
+                filename = f"{os.path.join(output_path, f'{i:04d}.{audio_extension}')}"
 
             with open(filename, 'wb') as outfile:
                 outfile.write(audio_bytes)
@@ -95,10 +96,10 @@ def get_audio_samples_from_container(song_id: int, container: str, convert_to_og
             print(f"{os.path.basename(filename)}: {len(audio_bytes)} bytes written.")
 
         print("All audio samples extracted.")
-        if convert_to_ogg:
-            for filename in os.listdir(output_path):
-                if filename.endswith(".wav") or filename.endswith(".wma"):
-                    sound_channels.append(convert_to_ogg_file(os.path.join(output_path, filename)))
+        for filename in os.listdir(output_path):
+            if filename.endswith(".wav") or filename.endswith(".wma"):
+                sound_channels.append(convert_to_ogg_file(
+                    os.path.join(output_path, filename)))
 
         sound_channels.sort()
         print("All sound channels exported.")
@@ -109,8 +110,13 @@ def convert_to_ogg_file(infile: str):
     outfile = os.path.splitext(infile)[0] + ".ogg"
 
     # the actual conversion happens here
-    print(f"Converting to {os.path.basename(outfile)}...")
-    subprocess.run(["ffmpeg", "-i", infile, "-c:a", "libvorbis", "-q:a", "5", "-v", "8", "-y", outfile], check=True)
+    if os.path.exists(outfile):
+        print(
+            f"Converted file {os.path.basename(outfile)} already exists, skipping...")
+    else:
+        print(f"Converting to {os.path.basename(outfile)}...")
+        subprocess.run(["ffmpeg", "-i", infile, "-c:a", "libvorbis",
+                        "-q:a", "5", "-v", "8", "-y", outfile], check=True)
     os.remove(infile)
 
-    return str(outfile)
+    return os.path.join(os.path.basename(outfile))
