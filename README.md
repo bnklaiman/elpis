@@ -12,7 +12,7 @@ The name comes from the first song I tested this with, [ΕΛΠΙΣ (pronounced "
 
 ## How do I run this?
 
-Since this a library this is not meant to be "run". Due to the necessary use of closed-source files, this project is purely for educational purposes only.
+Since this is a library this is not meant to be "run". Due to the necessary use of closed-source files, this project is purely for educational purposes only.
 
 ## Credit where it's due:
 - Original inspiration: GitHub user SaxxonPike's [scharfricter](https://github.com/SaxxonPike/scharfrichter)
