@@ -24,7 +24,21 @@ columns_to_keys = {
 starter_bmson = {
     "version": "1.0.0",
     "info": {
+        "title": "",
+        "subtitle": "",
+        "artist": "",
+        "subartists": [],
+        "genre": [],
+        "mode_hint": "",
+        "chart_name": "",
+        "level": 0,
         "init_bpm": 0,
+        "judge_rank": 100,
+        "total": 100,
+        "back_image": "",
+        "eyecatch_image": "",
+        "banner_image": "",
+        "preview_music": "",
         "resolution": 240
     },
     "lines": [],
@@ -48,7 +62,7 @@ def convert_to_pulses(ms: int, bpm_intervals: list):
         while ms < bpm_intervals[interval_index][0]:
             interval_index -= 1
 
-    return round((ms / (60 / bpm_intervals[interval_index][1])) * 240)
+    return (ms * starter_bmson["info"]["resolution"]) / (60000 / bpm_intervals[interval_index][1])
 
 
 def parse_chart(song_id: int, chart_file, chart_offset: int, dir_index: int, audio_samples: List[str]):
@@ -70,44 +84,44 @@ def parse_chart(song_id: int, chart_file, chart_offset: int, dir_index: int, aud
     bmson["info"]["subtitle"] = sanitize_input(data["SUBTITLE"])
     bmson["info"]["artist"] = sanitize_input(data["ARTIST"])
     bmson["info"]["genre"] = sanitize_input(data["GENRE"])
-    bmson["info"]["mode_hint"] = "beat-7k" if dir_index > 6 else "beat-14k"
+    bmson["info"]["mode_hint"] = "beat-7k" if dir_index < 6 else "beat-14k"
 
-    bmson_output_filename = ""
+    bmson_output_filename = f"{song_id}-"
 
     if dir_index == 0:
-        bmson["info"]["chart_name"] = "HYPER"
+        bmson["info"]["chart_name"] = "SP HYPER"
         bmson["info"]["level"] = int(data["SP-H"])
         bmson_output_filename += "SP-H.bmson"
     elif dir_index == 1:
-        bmson["info"]["chart_name"] = "NORMAL"
+        bmson["info"]["chart_name"] = "SP NORMAL"
         bmson["info"]["level"] = int(data["SP-N"])
         bmson_output_filename += "SP-N.bmson"
     elif dir_index == 2:
-        bmson["info"]["chart_name"] = "ANOTHER"
+        bmson["info"]["chart_name"] = "SP ANOTHER"
         bmson["info"]["level"] = int(data["SP-A"])
         bmson_output_filename += "SP-A.bmson"
     elif dir_index == 3:
-        bmson["info"]["chart_name"] = "BEGINNER"
+        bmson["info"]["chart_name"] = "SP BEGINNER"
         bmson["info"]["level"] = int(data["SP-B"])
         bmson_output_filename += "SP-B.bmson"
     elif dir_index == 4:
-        bmson["info"]["chart_name"] = "LEGGENDARIA"
+        bmson["info"]["chart_name"] = "SP LEGGENDARIA"
         bmson["info"]["level"] = int(data["SP-L"])
         bmson_output_filename += "SP-L.bmson"
     elif dir_index == 6:
-        bmson["info"]["chart_name"] = "HYPER"
+        bmson["info"]["chart_name"] = "DP HYPER"
         bmson["info"]["level"] = int(data["DP-H"])
         bmson_output_filename += "DP-H.bmson"
     elif dir_index == 7:
-        bmson["info"]["chart_name"] = "NORMAL"
+        bmson["info"]["chart_name"] = "DP NORMAL"
         bmson["info"]["level"] = int(data["DP-N"])
         bmson_output_filename += "DP-N.bmson"
     elif dir_index == 8:
-        bmson["info"]["chart_name"] = "ANOTHER"
+        bmson["info"]["chart_name"] = "DP ANOTHER"
         bmson["info"]["level"] = int(data["DP-A"])
         bmson_output_filename += "DP-A.bmson"
     elif dir_index == 10:
-        bmson["info"]["chart_name"] = "LEGGENDARIA"
+        bmson["info"]["chart_name"] = "DP LEGGENDARIA"
         bmson["info"]["level"] = int(data["DP-L"])
         bmson_output_filename += "DP-L.bmson"
 
@@ -248,7 +262,7 @@ def parse_chart(song_id: int, chart_file, chart_offset: int, dir_index: int, aud
     bmson_output_filename = os.path.join("out", str(song_id), bmson_output_filename)
     print(f"Writing to file \'{os.path.basename(bmson_output_filename)}\'...")
     with open(bmson_output_filename, "w", encoding="utf-8") as file:
-        json.dump(bmson, file, ensure_ascii=False)
+        json.dump(bmson, file, ensure_ascii=False, sort_keys=True)
 
     print(f"\'{os.path.basename(bmson_output_filename)}\' written.")
 
@@ -304,7 +318,7 @@ def parse_all_charts_and_audio(contents_dir, song_id: int, convert_to_ogg=True):
         shutil.copy(video_path, output_path)
         video_path = os.path.join("out", str(
             song_id), os.path.basename(video_path))
-        starter_bmson["bga"]["bga_header"] = ["bga", video_path]
+        # starter_bmson["bga"]["bga_header"] = ["bga", video_path]
 
     # check if chart file path exists, and if so import it (REQUIRED)
     if os.path.exists(os.path.join(contents_dir, "data", "sound", str(song_id), f"{song_id}.1")):

@@ -107,10 +107,10 @@ In the arcade versions of Beatmania IIDX, there is no "tick rate" defined in
 the chart file itself. You have to infer it from the version of the game:
 
 ```
-Version        Ticks Per Second
-Before GOLD    59.94
-GOLD           60.046
-After GOLD     1000    <-- we're using this
+Version           Ticks Per Second
+Before GOLD       59.94
+GOLD              60.046
+TROOPERS onward   1000    <-- we're using this
 ```
 
 You'll notice precision of the notes greatly increases on TROOPERS and later.

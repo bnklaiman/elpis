@@ -1,4 +1,6 @@
-# w.i.p
+# ELPIS (w.i.p.)
+
+**FOR EDUCATIONAL PURPOSES ONLY.**
 
 ## What does this do?
 
@@ -10,9 +12,7 @@ The name comes from the first song I tested this with, [ΕΛΠΙΣ (pronounced "
 
 ## How do I run this?
 
-As always, make sure ffmpeg is installed. 
-
-Actually, since this is now a library it's not meant to be "run" anymore.
+Since this is now a library it's not meant to be "run" anymore.
 
 ## What's happening now?
 

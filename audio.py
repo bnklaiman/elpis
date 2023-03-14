@@ -29,7 +29,7 @@ def get_audio_samples_from_container(song_id: int, container: str):
         print(f"{os.path.basename(infile.name)} loaded successfully.")
 
         # create output directory if it doesn't exist yet
-        output_path = f"{os.path.join('.', 'out', str(song_id))}"
+        output_path = f"{os.path.join('.', 'out', str(song_id), str(container_id))}"
         if os.path.exists(output_path):
             print(f"Output path {output_path} already exists, using it.")
         else:
@@ -119,4 +119,4 @@ def convert_to_ogg_file(infile: str):
                         "-q:a", "5", "-v", "8", "-y", outfile], check=True)
     os.remove(infile)
 
-    return os.path.join(os.path.basename(outfile))
+    return os.path.join(os.path.abspath(outfile).split('/')[-2], os.path.abspath(outfile).split('/')[-1])
