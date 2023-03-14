@@ -120,3 +120,7 @@ def convert_to_ogg_file(infile: str):
     os.remove(infile)
 
     return os.path.join(os.path.abspath(outfile).split('/')[-2], os.path.abspath(outfile).split('/')[-1])
+
+
+# Input: array of sound channels (from BMSON_ROOT[])
+# Output: single audio file containing all merged background samples played at the correct time

@@ -1,6 +1,6 @@
-tl;dr: we're converting from IIDX's proprietary `.1` level (or "chart") format to the open [`.bmson` format](https://bmson-spec.readthedocs.io/en/master/doc/index.html).
-
 very slightly edited from https://github.com/SaxxonPike/rhythm-game-formats/blob/master/iidx/1.md
+
+tl;dr: we're converting from IIDX's proprietary `.1` level (or "chart") format to the open [`.bmson` format](https://bmson-spec.readthedocs.io/en/master/doc/index.html).
 
 # beatmaniaIIDX .1 format
 

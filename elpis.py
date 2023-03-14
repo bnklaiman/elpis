@@ -52,19 +52,6 @@ EIGHT_ZERO_BYTES = b'\x00\x00\x00\x00\x00\x00\x00\x00'
 END_OF_CHART = b'\xFF\xFF\xFF\x7F\x00\x00\x00\x00'
 
 
-# For a specific offset in milliseconds and an array of bpm intervals, convert to pulses (where 1/4 note = 240 pulses)
-def convert_to_pulses(ms: int, bpm_intervals: list):
-    interval_index = len(bpm_intervals) - 1
-    # find current interval
-    if len(bpm_intervals) == 1:
-        interval_index = 0
-    else:
-        while ms < bpm_intervals[interval_index][0]:
-            interval_index -= 1
-
-    return (ms * starter_bmson["info"]["resolution"]) / (60000 / bpm_intervals[interval_index][1])
-
-
 def parse_chart(song_id: int, chart_file, chart_offset: int, dir_index: int, audio_samples: List[str]):
     data = pd.read_csv("data.csv", encoding="utf-8")
     data = data.to_dict('records')
@@ -160,7 +147,7 @@ def parse_chart(song_id: int, chart_file, chart_offset: int, dir_index: int, aud
                             f"BPM change event already exists at {event_offset}ms, ignoring.")
                     else:
                         bmson["bpm_events"].append({
-                            "y": convert_to_pulses(event_offset, bpm_intervals),
+                            "y": convert_to_pulses(event_offset, bpm_intervals, starter_bmson["info"]["resolution"]),
                             "bpm": bpm
                         })
                         print(
@@ -187,8 +174,8 @@ def parse_chart(song_id: int, chart_file, chart_offset: int, dir_index: int, aud
                 f"{columns_to_keys[event_param]}{', hold for ' + str(event_value) + 'ms' if event_value > 0 else ''}")
             note = {
                 "x": event_param + 1,
-                "y": convert_to_pulses(event_offset, bpm_intervals),
-                "l": convert_to_pulses(event_value, bpm_intervals),
+                "y": convert_to_pulses(event_offset, bpm_intervals, starter_bmson["info"]["resolution"]),
+                "l": convert_to_pulses(event_value, bpm_intervals, starter_bmson["info"]["resolution"]),
                 "c": False
             }
             sound_channels[current_samples[event_param]]["notes"].append(note)
@@ -199,8 +186,8 @@ def parse_chart(song_id: int, chart_file, chart_offset: int, dir_index: int, aud
                 f"{columns_to_keys[event_param]}{', hold for ' + str(event_value) + 'ms' if event_value > 0 else ''}")
             note = {
                 "x": event_param + 9,
-                "y": convert_to_pulses(event_offset, bpm_intervals),
-                "l": convert_to_pulses(event_value, bpm_intervals),
+                "y": convert_to_pulses(event_offset, bpm_intervals, starter_bmson["info"]["resolution"]),
+                "l": convert_to_pulses(event_value, bpm_intervals, starter_bmson["info"]["resolution"]),
                 "c": False
             }
             sound_channels[current_samples[event_param]]["notes"].append(note)
@@ -232,7 +219,7 @@ def parse_chart(song_id: int, chart_file, chart_offset: int, dir_index: int, aud
                 f"Event at {event_offset}ms: Background sample {event_value}")
             note = {
                 "x": 0,
-                "y": convert_to_pulses(event_offset, bpm_intervals),
+                "y": convert_to_pulses(event_offset, bpm_intervals, starter_bmson["info"]["resolution"]),
                 "l": 0,
                 "c": False
             }
@@ -245,7 +232,7 @@ def parse_chart(song_id: int, chart_file, chart_offset: int, dir_index: int, aud
             # handle event type 0C (measure bar)
             print(
                 f"Event at {event_offset}ms: Measure bar for P{event_param + 1}")
-            bmson["lines"].append({"y": convert_to_pulses(event_offset, bpm_intervals)})
+            bmson["lines"].append({"y": convert_to_pulses(event_offset, bpm_intervals, starter_bmson["info"]["resolution"])})
         elif event_type == 0x10:
             # handle event type 10 (note count)
             print(
