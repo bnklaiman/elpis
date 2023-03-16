@@ -6,7 +6,7 @@ import struct
 import sys
 from typing import List
 
-from audio import get_audio_samples_from_container
+from audio import get_audio_samples_from_container, generate_bgm
 from utils import *
 
 columns_to_keys = {
@@ -52,7 +52,7 @@ EIGHT_ZERO_BYTES = b'\x00\x00\x00\x00\x00\x00\x00\x00'
 END_OF_CHART = b'\xFF\xFF\xFF\x7F\x00\x00\x00\x00'
 
 
-def parse_chart(song_id: int, chart_file, chart_offset: int, dir_index: int, audio_samples: List[str]):
+def parse_chart(song_id, chart_file, chart_offset, dir_index, audio_samples):
     data = pd.read_csv("data.csv", encoding="utf-8")
     data = data.to_dict('records')
 
@@ -117,13 +117,13 @@ def parse_chart(song_id: int, chart_file, chart_offset: int, dir_index: int, aud
     for i in range(len(audio_samples)):
         sound_channels.append({"name": audio_samples[i], "notes": []})
 
-    current_samples = [0, 0, 0, 0, 0, 0, 0, 0, 
-                       0, 0, 0, 0, 0, 0, 0, 0]
+    current_samples = [[0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]]
 
-    # initialize bpm and bpm intervals
+    # initialize bpm and bpm intervals, and background audio samples and their respective offsets
     bpm_intervals = []
     chart_file.seek(chart_offset)
     event = chart_file.read(8)
+    bgm_samples = []
     while event and END_OF_CHART not in event:
         event_offset = (event[3] << 24) | (
             event[2] << 16) | (event[1] << 8) | (event[0])
@@ -152,10 +152,30 @@ def parse_chart(song_id: int, chart_file, chart_offset: int, dir_index: int, aud
                         })
                         print(
                             f"Event at {event_offset}ms: BPM change to {round(event_value / event_param)}")
+        elif event_type == 0x07:
+            # handle event type 07 (background sample)
+            print(
+                f"Event at {event_offset}ms: Background sample {event_value - 1} (0-indexed)")
+            # bgm_samples.append([event_offset, event_value - 1])
+            # TODO: change this
+            # note = {
+            #     "x": 0,
+            #     "y": convert_to_pulses(event_offset, bpm_intervals, starter_bmson["info"]["resolution"]),
+            #     "l": 0,
+            #     "c": False
+            # }
+            # sound_channels[current_samples[event_param]]["notes"].append(note)
 
         event = chart_file.read(8)
 
     print("End of chart reached.")
+
+    # replace indeces in bgm_samples with the actual files
+    for i in range(len(bgm_samples)):
+        index = bgm_samples[i][1]
+        bgm_samples[i][1] = sound_channels[index]["name"]
+    # generate bgm track for this specific chart
+    # generate_bgm(bgm_samples, song_id, dir_index)
 
     # ready to parse chart
     chart_file.seek(chart_offset)
@@ -178,7 +198,7 @@ def parse_chart(song_id: int, chart_file, chart_offset: int, dir_index: int, aud
                 "l": convert_to_pulses(event_value, bpm_intervals, starter_bmson["info"]["resolution"]),
                 "c": False
             }
-            sound_channels[current_samples[event_param]]["notes"].append(note)
+            sound_channels[current_samples[0][event_param]]["notes"].append(note)
         elif event_type == 0x01:
             # handle event type 01 (visible note on playfield for P2)
             print(
@@ -190,19 +210,19 @@ def parse_chart(song_id: int, chart_file, chart_offset: int, dir_index: int, aud
                 "l": convert_to_pulses(event_value, bpm_intervals, starter_bmson["info"]["resolution"]),
                 "c": False
             }
-            sound_channels[current_samples[event_param]]["notes"].append(note)
+            sound_channels[current_samples[1][event_param]]["notes"].append(note)
         elif event_type == 0x02:
             # handle event type 02 (sample change for P1)
             print(
                 f"Event at {event_offset}ms: Sample change for P1: ",
                 f"{columns_to_keys[event_param]} => sample {event_value - 1} (0-indexed)")
-            current_samples[event_param] = event_value - 1
+            current_samples[0][event_param] = event_value - 1
         elif event_type == 0x03:
             # handle event type 03 (sample change for P2)
             print(
                 f"Event at {event_offset}ms: Sample change for P2: ",
                 f"{columns_to_keys[event_param]} => sample {event_value - 1} (0-indexed)")
-            current_samples[event_param + 8] = event_value - 1
+            current_samples[1][event_param] = event_value - 1
         elif event_type == 0x04:
             # we already did this, so ignore
             print(f"Event at {event_offset}ms: BPM change, ignoring.")
@@ -212,18 +232,10 @@ def parse_chart(song_id: int, chart_file, chart_offset: int, dir_index: int, aud
         elif event_type == 0x06:
             # handle event type 06 (end of song)
             print(f"Event at {event_offset}ms: End of song, ignoring.")
-            break
         elif event_type == 0x07:
-            # handle event type 07 (background sample)
+            # we already did this, so ignore.
             print(
-                f"Event at {event_offset}ms: Background sample {event_value}")
-            note = {
-                "x": 0,
-                "y": convert_to_pulses(event_offset, bpm_intervals, starter_bmson["info"]["resolution"]),
-                "l": 0,
-                "c": False
-            }
-            sound_channels[current_samples[event_param]]["notes"].append(note)
+                f"Event at {event_offset}ms: Background sample, ignoring.")
         elif event_type == 0x08:
             # handle (or more specifically, don't handle) event type 08 (timing window info)
             print(
@@ -254,7 +266,7 @@ def parse_chart(song_id: int, chart_file, chart_offset: int, dir_index: int, aud
     print(f"\'{os.path.basename(bmson_output_filename)}\' written.")
 
 
-def parse_all_charts_and_audio(contents_dir, song_id: int, convert_to_ogg=True):
+def parse_all_charts_and_audio(contents_dir, song_id):
     # create output directory if it doesn't exist yet
     output_path = f"{os.path.join('.', 'out', str(song_id))}"
     if os.path.exists(output_path):

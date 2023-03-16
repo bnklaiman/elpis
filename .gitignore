@@ -6,7 +6,7 @@ out/
 test/
 venv/
 data.csv
-main.py
+main.*
 *.so
 *.pyi
 *.pyd

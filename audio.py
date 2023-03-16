@@ -2,9 +2,11 @@ import os
 import struct
 import subprocess
 import sys
+from pydub import AudioSegment
+from typing import List
 
 
-def get_audio_samples_from_container(song_id: int, container: str):
+def get_audio_samples_from_container(song_id, container):
     print(f"Looking at file {container} in song id #{song_id}")
 
     [container_id, container_extension] = os.path.basename(
@@ -84,6 +86,8 @@ def get_audio_samples_from_container(song_id: int, container: str):
                 audio_extension = "wav"
             elif container_extension == "s3p":
                 audio_extension = "wma"
+            else:
+                sys.exit("Invalid container extension, exiting...");
 
             if is_preview_file:
                 filename = f"{os.path.join(output_path, f'preview.{audio_extension}')}"
@@ -106,7 +110,7 @@ def get_audio_samples_from_container(song_id: int, container: str):
         return sound_channels
 
 
-def convert_to_ogg_file(infile: str):
+def convert_to_ogg_file(infile):
     outfile = os.path.splitext(infile)[0] + ".ogg"
 
     # the actual conversion happens here
@@ -116,13 +120,53 @@ def convert_to_ogg_file(infile: str):
     else:
         print(f"Converting to {os.path.basename(outfile)}...")
         subprocess.run(["ffmpeg", "-i", infile, "-c:a", "libvorbis",
-                        "-q:a", "5", "-v", "8", "-y", outfile], check=True)
+                        "-q:a", "6", "-v", "8", "-y", outfile], check=True)
     os.remove(infile)
 
-    return os.path.join(os.path.abspath(outfile).split('/')[-2], os.path.abspath(outfile).split('/')[-1])
+    return os.path.join(os.path.abspath(outfile).split(os.path.sep)[-2], os.path.abspath(outfile).split(os.path.sep)[-1])
 
 
-# Input: array of sound channels (from BMSON_ROOT["sound_channels"])
-# in all sound channels, add all notes where x = 0 to new array
-# taking into account y in 1/240 pulses, convert to ms for merging using python audio library
-# Output: single audio file containing all merged background samples played at the correct time
+# given a list of audio samples and their offsets, output a single audio file containing all merged background samples played at the correct time
+def generate_bgm(bgm_samples, song_id, dir_index):
+    output_folder = bgm_samples[0][1].split(os.path.sep)[0]
+
+    for i in range(len(bgm_samples)):
+        print(f"Pydub: adding AudioSegment {i + 1} of {len(bgm_samples)}")
+        bgm_samples[i][1] = AudioSegment.from_file(os.path.join(".", "out", str(song_id), bgm_samples[i][1]), format="ogg")
+
+    track_length = max([offset + sample.duration_seconds * 1000 for offset, sample in bgm_samples])
+
+    bgm_track = AudioSegment.silent(duration=track_length)
+    for offset, sample in bgm_samples:
+        print(f"Pydub: overlaying sample at offset {offset}")
+        bgm_track += bgm_track.overlay(sample, position=offset)
+
+    # Determine file name from chart directory entry
+    filename = f"{output_folder}-BGM-"
+    match dir_index:
+        case 0:
+            filename += "SP-H"
+        case 1:
+            filename += "SP-N"
+        case 2:
+            filename += "SP-A"
+        case 3:
+            filename += "SP-B"
+        case 4:
+            filename += "SP-L"
+        case 6:
+            filename += "DP-H"
+        case 7:
+            filename += "DP-N"
+        case 8:
+            filename += "DP-A"
+        case 9:
+            filename += "DP-B"
+        case 10:
+            filename += "DP-L"
+        case _:
+            sys.exit("Invalid directory index, exiting...")
+
+    filename += ".ogg"
+
+    bgm_track.export(filename, format="ogg")
