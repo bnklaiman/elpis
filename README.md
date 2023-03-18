@@ -1,4 +1,5 @@
-# Elpis (w.i.p., though hopefully for not much longer)
+# Elpis
+## (currently w.i.p. though hopefully not for too much longer)
 
 **FOR EDUCATIONAL PURPOSES ONLY.**
 
