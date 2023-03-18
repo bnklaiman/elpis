@@ -159,9 +159,6 @@ def parse_chart(song_id, chart_file, chart_offset, dir_index, audio_samples):
             print(
                 f"Event at {event_offset}ms: Background sample {event_value - 1} (0-indexed)")
             bgm_samples.append([event_offset, event_value - 1])
-            # TODO: change this
-            if bgm_exists == False:
-                bgm_exists = True
 
         event = chart_file.read(8)
 
