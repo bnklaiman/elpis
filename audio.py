@@ -2,8 +2,8 @@ import os
 import struct
 import subprocess
 import sys
-from pydub import AudioSegment
-from typing import List
+import torch
+import torchaudio
 
 
 def get_audio_samples_from_container(song_id, container):
@@ -87,7 +87,7 @@ def get_audio_samples_from_container(song_id, container):
             elif container_extension == "s3p":
                 audio_extension = "wma"
             else:
-                sys.exit("Invalid container extension, exiting...");
+                sys.exit("Invalid container extension, exiting...")
 
             if is_preview_file:
                 filename = f"{os.path.join(output_path, f'preview.{audio_extension}')}"
@@ -120,7 +120,7 @@ def convert_to_ogg_file(infile):
     else:
         print(f"Converting to {os.path.basename(outfile)}...")
         subprocess.run(["ffmpeg", "-i", infile, "-c:a", "libvorbis",
-                        "-q:a", "6", "-v", "8", "-y", outfile], check=True)
+                        "-q:a", "9", "-v", "8", "-y", outfile], check=True)
     os.remove(infile)
 
     return os.path.join(os.path.abspath(outfile).split(os.path.sep)[-2], os.path.abspath(outfile).split(os.path.sep)[-1])
@@ -129,17 +129,6 @@ def convert_to_ogg_file(infile):
 # given a list of audio samples and their offsets, output a single audio file containing all merged background samples played at the correct time
 def generate_bgm(bgm_samples, song_id, dir_index):
     output_folder = bgm_samples[0][1].split(os.path.sep)[0]
-
-    for i in range(len(bgm_samples)):
-        print(f"Pydub: adding AudioSegment {i + 1} of {len(bgm_samples)}")
-        bgm_samples[i][1] = AudioSegment.from_file(os.path.join(".", "out", str(song_id), bgm_samples[i][1]), format="ogg")
-
-    track_length = max([offset + sample.duration_seconds * 1000 for offset, sample in bgm_samples])
-
-    bgm_track = AudioSegment.silent(duration=track_length)
-    for offset, sample in bgm_samples:
-        print(f"Pydub: overlaying sample at offset {offset}")
-        bgm_track += bgm_track.overlay(sample, position=offset)
 
     # Determine file name from chart directory entry
     filename = f"{output_folder}-BGM-"
@@ -169,4 +158,32 @@ def generate_bgm(bgm_samples, song_id, dir_index):
 
     filename += ".ogg"
 
-    bgm_track.export(filename, format="ogg")
+    max_length = 0
+    for offset, file in bgm_samples:
+        print(
+            f"Torchaudio: Making precalculations for file {os.path.basename(file)} at offset {offset}ms.")
+        file = os.path.join(".", "out", output_folder, file)
+        signal, sample_rate = torchaudio.load(file)
+        signal_length = int(
+            signal.shape[1] * 44100 / sample_rate + offset * 44100 / 1000)
+        if signal_length > max_length:
+            max_length = signal_length
+    output_signal = torch.zeros(2, max_length)
+
+    for offset, file in bgm_samples:
+        file = os.path.join(".", "out", output_folder, file)
+        print(
+            f"Torchaudio: Processing file {os.path.basename(file)} at offset {offset}ms.")
+        signal, sample_rate = torchaudio.load(file)
+        signal = torchaudio.transforms.Resample(sample_rate, 44100)(signal)
+        if signal.shape[0] == 1:
+            signal = torch.cat((signal, signal), dim=0)
+        start_sample = int(offset * 44100 / 1000)
+        end_sample = start_sample + signal.shape[1]
+        output_signal[:, start_sample:end_sample] += signal
+
+    torchaudio.save(os.path.join(".", "out", str(song_id),
+                    output_folder, filename), output_signal, 44100)
+    print(f"File {os.path.basename(filename)} saved.")
+
+    return os.path.join(str(output_folder), filename)

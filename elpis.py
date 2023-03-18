@@ -124,6 +124,7 @@ def parse_chart(song_id, chart_file, chart_offset, dir_index, audio_samples):
     chart_file.seek(chart_offset)
     event = chart_file.read(8)
     bgm_samples = []
+    bgm_exists = False
     while event and END_OF_CHART not in event:
         event_offset = (event[3] << 24) | (
             event[2] << 16) | (event[1] << 8) | (event[0])
@@ -156,26 +157,29 @@ def parse_chart(song_id, chart_file, chart_offset, dir_index, audio_samples):
             # handle event type 07 (background sample)
             print(
                 f"Event at {event_offset}ms: Background sample {event_value - 1} (0-indexed)")
-            # bgm_samples.append([event_offset, event_value - 1])
+            bgm_samples.append([event_offset, event_value - 1])
             # TODO: change this
-            # note = {
-            #     "x": 0,
-            #     "y": convert_to_pulses(event_offset, bpm_intervals, starter_bmson["info"]["resolution"]),
-            #     "l": 0,
-            #     "c": False
-            # }
-            # sound_channels[current_samples[event_param]]["notes"].append(note)
+            if bgm_exists == False:
+                bgm_exists = True
 
         event = chart_file.read(8)
 
-    print("End of chart reached.")
-
-    # replace indeces in bgm_samples with the actual files
+    # replace indices in bgm_samples with the actual files
     for i in range(len(bgm_samples)):
         index = bgm_samples[i][1]
         bgm_samples[i][1] = sound_channels[index]["name"]
+
     # generate bgm track for this specific chart
-    # generate_bgm(bgm_samples, song_id, dir_index)
+    bgm_name = generate_bgm(bgm_samples, song_id, dir_index)
+
+    note = {
+        "x": 0,
+        "y": 0,
+        "l": 0,
+        "c": False
+    }
+    sound_channels.append({"name": bgm_name, "notes": [note]})
+    print("End of chart reached.")
 
     # ready to parse chart
     chart_file.seek(chart_offset)
@@ -198,7 +202,8 @@ def parse_chart(song_id, chart_file, chart_offset, dir_index, audio_samples):
                 "l": convert_to_pulses(event_value, bpm_intervals, starter_bmson["info"]["resolution"]),
                 "c": False
             }
-            sound_channels[current_samples[0][event_param]]["notes"].append(note)
+            sound_channels[current_samples[0]
+                           [event_param]]["notes"].append(note)
         elif event_type == 0x01:
             # handle event type 01 (visible note on playfield for P2)
             print(
@@ -210,7 +215,8 @@ def parse_chart(song_id, chart_file, chart_offset, dir_index, audio_samples):
                 "l": convert_to_pulses(event_value, bpm_intervals, starter_bmson["info"]["resolution"]),
                 "c": False
             }
-            sound_channels[current_samples[1][event_param]]["notes"].append(note)
+            sound_channels[current_samples[1]
+                           [event_param]]["notes"].append(note)
         elif event_type == 0x02:
             # handle event type 02 (sample change for P1)
             print(
@@ -244,7 +250,8 @@ def parse_chart(song_id, chart_file, chart_offset, dir_index, audio_samples):
             # handle event type 0C (measure bar)
             print(
                 f"Event at {event_offset}ms: Measure bar for P{event_param + 1}")
-            bmson["lines"].append({"y": convert_to_pulses(event_offset, bpm_intervals, starter_bmson["info"]["resolution"])})
+            bmson["lines"].append({"y": convert_to_pulses(
+                event_offset, bpm_intervals, starter_bmson["info"]["resolution"])})
         elif event_type == 0x10:
             # handle event type 10 (note count)
             print(
@@ -258,7 +265,8 @@ def parse_chart(song_id, chart_file, chart_offset, dir_index, audio_samples):
 
     print("End of chart reached.")
     bmson["sound_channels"] = sound_channels
-    bmson_output_filename = os.path.join("out", str(song_id), bmson_output_filename)
+    bmson_output_filename = os.path.join(
+        "out", str(song_id), bmson_output_filename)
     print(f"Writing to file \'{os.path.basename(bmson_output_filename)}\'...")
     with open(bmson_output_filename, "w", encoding="utf-8") as file:
         json.dump(bmson, file, ensure_ascii=False, sort_keys=True)
@@ -284,7 +292,8 @@ def parse_all_charts_and_audio(contents_dir, song_id):
         shutil.copy(title_image_path, output_path)
         title_image_path = os.path.join("out", str(
             song_id), os.path.basename(title_image_path))
-        starter_bmson["info"]["title_image"] = os.path.basename(title_image_path)
+        starter_bmson["info"]["title_image"] = os.path.basename(
+            title_image_path)
     else:
         print("No title image found, I hope you know what you're doing!")
 
@@ -297,7 +306,8 @@ def parse_all_charts_and_audio(contents_dir, song_id):
         shutil.copy(eyecatch_image_path, output_path)
         eyecatch_image_path = os.path.join("out", str(
             song_id), os.path.basename(eyecatch_image_path))
-        starter_bmson["info"]["eyecatch_image"] = os.path.basename(eyecatch_image_path)
+        starter_bmson["info"]["eyecatch_image"] = os.path.basename(
+            eyecatch_image_path)
     else:
         print("No eyecatch image found, I hope you know what you're doing!")
 
