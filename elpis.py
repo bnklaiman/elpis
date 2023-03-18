@@ -147,6 +147,7 @@ def parse_chart(song_id, chart_file, chart_offset, dir_index, audio_samples):
                         print(
                             f"BPM change event already exists at {event_offset}ms, ignoring.")
                     else:
+                        # TODO: fix this, first loop appends this 1 time, second loop 2 times, third loop 3 times, etc
                         bmson["bpm_events"].append({
                             "y": convert_to_pulses(event_offset, bpm_intervals, starter_bmson["info"]["resolution"]),
                             "bpm": bpm
