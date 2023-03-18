@@ -1,4 +1,4 @@
-# Elpis (w.i.p.)
+# Elpis (w.i.p., though hopefully for not much longer)
 
 **FOR EDUCATIONAL PURPOSES ONLY.**
 
