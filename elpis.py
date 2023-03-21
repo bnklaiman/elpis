@@ -4,7 +4,6 @@ import pandas as pd
 import shutil
 import struct
 import sys
-from typing import List
 
 from audio import get_audio_samples_from_container, generate_bgm
 from utils import *
@@ -124,7 +123,6 @@ def parse_chart(song_id, chart_file, chart_offset, dir_index, audio_samples):
     chart_file.seek(chart_offset)
     event = chart_file.read(8)
     bgm_samples = []
-    bgm_exists = False
     while event and END_OF_CHART not in event:
         event_offset = (event[3] << 24) | (
             event[2] << 16) | (event[1] << 8) | (event[0])
@@ -139,21 +137,24 @@ def parse_chart(song_id, chart_file, chart_offset, dir_index, audio_samples):
 
             if bmson["info"]["init_bpm"] == 0:
                 bmson["info"]["init_bpm"] = bpm
+                bmson["bpm_events"].append({
+                        "y": convert_to_pulses(event_offset, bpm_intervals, starter_bmson["info"]["resolution"]),
+                        "bpm": bpm
+                    })
                 print(
                     f"Event at {event_offset}ms: BPM initialized to {round(event_value / event_param)}")
             else:
-                for interval in bpm_intervals:
-                    if interval[0] == event_offset:
-                        print(
-                            f"BPM change event already exists at {event_offset}ms, ignoring.")
-                    else:
-                        # TODO: fix this, first loop appends this 1 time, second loop 2 times, third loop 3 times, etc
-                        bmson["bpm_events"].append({
-                            "y": convert_to_pulses(event_offset, bpm_intervals, starter_bmson["info"]["resolution"]),
-                            "bpm": bpm
-                        })
-                        print(
-                            f"Event at {event_offset}ms: BPM change to {round(event_value / event_param)}")
+                if bpm_intervals[-1] == event_offset:
+                    print(
+                        f"BPM change event already exists at {event_offset}ms, ignoring.")
+                else:
+                    # TODO: fix this, first loop appends this 1 time, second loop 2 times, third loop 3 times, etc
+                    bmson["bpm_events"].append({
+                        "y": convert_to_pulses(event_offset, bpm_intervals, starter_bmson["info"]["resolution"]),
+                        "bpm": bpm
+                    })
+                    print(
+                        f"Event at {event_offset}ms: BPM change to {round(event_value / event_param)}")
         elif event_type == 0x07:
             # handle event type 07 (background sample)
             print(
@@ -323,9 +324,9 @@ def parse_all_charts_and_audio(contents_dir, song_id):
         print(
             f"Found video file {os.path.basename(video_path)}, importing it...")
         shutil.copy(video_path, output_path)
-        video_path = os.path.join("out", str(
+        video_path = os.path.join(str(
             song_id), os.path.basename(video_path))
-        # starter_bmson["bga"]["bga_header"] = ["bga", video_path]
+        # starter_bmson["bga"]["bga_header"] = ["name", video_path]
 
     # check if chart file path exists, and if so import it (REQUIRED)
     if os.path.exists(os.path.join(contents_dir, "data", "sound", str(song_id), f"{song_id}.1")):
@@ -410,6 +411,6 @@ def parse_all_charts_and_audio(contents_dir, song_id):
     os.remove(chart_path)
     print(f"{os.path.basename(chart_path)} removed.")
     os.remove(container_path)
-    print(f"{os.path.basename(preview_path)} removed.")
+    print(f"{os.path.basename(container_path)} removed.")
     os.remove(preview_path)
     print(f"{os.path.basename(preview_path)} removed.")

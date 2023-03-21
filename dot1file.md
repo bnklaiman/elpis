@@ -46,7 +46,7 @@ BK note: as of now, the directory structure is as follows:
 |6|DP-HYPER|
 |7|DP-NORMAL|
 |8|DP-ANOTHER|
-|9|DP-BEGINNER|
+|9|DP-BEGINNER| (currently unused)
 |10|DP-LEGGENDARIA/BLACK ANOTHER|
 |11|(empty)|
 

@@ -157,33 +157,37 @@ def generate_bgm(bgm_samples, song_id, dir_index):
             sys.exit("Invalid directory index, exiting...")
 
     filename += ".ogg"
+    bgm_output_location = os.path.join(".", "out", str(song_id),
+                                       output_folder, filename)
+    
+    if os.path.exists(filename):
+        print(f"File {os.path.basename(filename)} already exists, skipping.")
+    else:
+        max_length = 0
+        for offset, file in bgm_samples:
+            print(
+                f"Torchaudio: Making precalculations for file {os.path.basename(file)} at offset {offset}ms.")
+            file = os.path.join(".", "out", output_folder, file)
+            signal, sample_rate = torchaudio.load(file)
+            signal_length = int(
+                signal.shape[1] * 44100 / sample_rate + offset * 44100 / 1000)
+            if signal_length > max_length:
+                max_length = signal_length
+        output_signal = torch.zeros(2, max_length)
 
-    max_length = 0
-    for offset, file in bgm_samples:
-        print(
-            f"Torchaudio: Making precalculations for file {os.path.basename(file)} at offset {offset}ms.")
-        file = os.path.join(".", "out", output_folder, file)
-        signal, sample_rate = torchaudio.load(file)
-        signal_length = int(
-            signal.shape[1] * 44100 / sample_rate + offset * 44100 / 1000)
-        if signal_length > max_length:
-            max_length = signal_length
-    output_signal = torch.zeros(2, max_length)
+        for offset, file in bgm_samples:
+            file = os.path.join(".", "out", output_folder, file)
+            print(
+                f"Torchaudio: Processing file {os.path.basename(file)} at offset {offset}ms.")
+            signal, sample_rate = torchaudio.load(file)
+            signal = torchaudio.transforms.Resample(sample_rate, 44100)(signal)
+            if signal.shape[0] == 1:
+                signal = torch.cat((signal, signal), dim=0)
+            start_sample = int(offset * 44100 / 1000)
+            end_sample = start_sample + signal.shape[1]
+            output_signal[:, start_sample:end_sample] += signal
 
-    for offset, file in bgm_samples:
-        file = os.path.join(".", "out", output_folder, file)
-        print(
-            f"Torchaudio: Processing file {os.path.basename(file)} at offset {offset}ms.")
-        signal, sample_rate = torchaudio.load(file)
-        signal = torchaudio.transforms.Resample(sample_rate, 44100)(signal)
-        if signal.shape[0] == 1:
-            signal = torch.cat((signal, signal), dim=0)
-        start_sample = int(offset * 44100 / 1000)
-        end_sample = start_sample + signal.shape[1]
-        output_signal[:, start_sample:end_sample] += signal
-
-    torchaudio.save(os.path.join(".", "out", str(song_id),
-                    output_folder, filename), output_signal, 44100)
-    print(f"File {os.path.basename(filename)} saved.")
+        torchaudio.save(bgm_output_location, output_signal, 44100)
+        print(f"File {os.path.basename(filename)} saved.")
 
     return os.path.join(str(output_folder), filename)
