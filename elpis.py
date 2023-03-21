@@ -326,7 +326,8 @@ def parse_all_charts_and_audio(contents_dir, song_id):
         shutil.copy(video_path, output_path)
         video_path = os.path.join(str(
             song_id), os.path.basename(video_path))
-        # starter_bmson["bga"]["bga_header"] = ["name", video_path]
+        starter_bmson["bga"]["bga_events"] = [{"id": 1, "y": 0}]
+        starter_bmson["bga"]["bga_header"] = [{"id": 1, "name": os.path.basename(video_path)}]
 
     # check if chart file path exists, and if so import it (REQUIRED)
     if os.path.exists(os.path.join(contents_dir, "data", "sound", str(song_id), f"{song_id}.1")):
