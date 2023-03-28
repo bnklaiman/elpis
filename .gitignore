@@ -10,3 +10,4 @@ main.*
 *.so
 *.pyi
 *.pyd
+LDJ*
