@@ -5,9 +5,10 @@ ext/
 out/
 test/
 venv/
-data.csv
+data*
 main.*
 *.so
 *.pyi
 *.pyd
-LDJ*
+[A-Z]*
+README.md

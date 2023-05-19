@@ -47,16 +47,45 @@ starter_bmson = {
     "bga": {}
 }
 
+alt_containers = json.load(open('ALTERNATE_CONTAINER_FILE'))
+
 EIGHT_ZERO_BYTES = b'\x00\x00\x00\x00\x00\x00\x00\x00'
 END_OF_CHART = b'\xFF\xFF\xFF\x7F\x00\x00\x00\x00'
 
 
-def parse_chart(song_id, chart_file, chart_offset, dir_index, audio_samples):
-    data = pd.read_csv("data.csv", encoding="utf-8")
+def parse_chart(contents_dir, song_id, chart_file, chart_offset, dir_index, container_path):
+    # handle audio container edge cases: check if the container directory exists instead of the container itself
+    if container_path == "":
+        container_dir = ""
+        if os.path.exists(os.path.join(contents_dir, "data", "sound", str(song_id))):
+            container_dir = os.path.join(
+                contents_dir, "data", "sound", str(song_id))
+        elif os.path.exists(os.path.join(contents_dir, "data", "sound", f"{song_id}_ifs", str(song_id))):
+            container_dir = os.path.join(
+                contents_dir, "data", "sound", f"{song_id}_ifs", str(song_id))
+        else:
+            sys.exit("Invalid container directory edge case, exiting...")
+
+        # Since there are multiple audio containers, import all of them
+        output_path = f"{os.path.join('.', 'out', str(song_id))}"
+        print("Looking for audio container files...")
+        for root, dirnames, filenames in os.walk(container_dir):
+            for file in filenames:
+                (shortname, extension) = os.path.splitext(file)
+                if extension == ".2dx" or extension == ".s3p":
+                    shutil.copy(os.path.join(root, file), os.path.join(
+                        output_path, os.path.relpath(os.path.join(root, file), container_dir)))
+
+        container_path = os.path.join(".", "out", str(
+            song_id), alt_containers[song_id][dir_index])
+
+    audio_samples = get_audio_samples_from_container(song_id, container_path)
+
+    data = pd.read_csv("DATA_FILE", encoding="utf-8", dtype={"ID":"string"})
     data = data.to_dict('records')
 
     for entry in data:
-        if entry["ID"] == int(f"{song_id:05d}"):
+        if entry["ID"] == song_id:
             print(
                 f"Song entry {entry['ID']} found: \"{entry['ASCII TITLE']}\"")
             data = entry
@@ -74,42 +103,45 @@ def parse_chart(song_id, chart_file, chart_offset, dir_index, audio_samples):
 
     bmson_output_filename = f"{song_id}-"
 
-    if dir_index == 0:
-        bmson["info"]["chart_name"] = "SP HYPER"
-        bmson["info"]["level"] = int(data["SP-H"])
-        bmson_output_filename += "SP-H.bmson"
-    elif dir_index == 1:
-        bmson["info"]["chart_name"] = "SP NORMAL"
-        bmson["info"]["level"] = int(data["SP-N"])
-        bmson_output_filename += "SP-N.bmson"
-    elif dir_index == 2:
-        bmson["info"]["chart_name"] = "SP ANOTHER"
-        bmson["info"]["level"] = int(data["SP-A"])
-        bmson_output_filename += "SP-A.bmson"
-    elif dir_index == 3:
-        bmson["info"]["chart_name"] = "SP BEGINNER"
-        bmson["info"]["level"] = int(data["SP-B"])
-        bmson_output_filename += "SP-B.bmson"
-    elif dir_index == 4:
-        bmson["info"]["chart_name"] = "SP LEGGENDARIA"
-        bmson["info"]["level"] = int(data["SP-L"])
-        bmson_output_filename += "SP-L.bmson"
-    elif dir_index == 6:
-        bmson["info"]["chart_name"] = "DP HYPER"
-        bmson["info"]["level"] = int(data["DP-H"])
-        bmson_output_filename += "DP-H.bmson"
-    elif dir_index == 7:
-        bmson["info"]["chart_name"] = "DP NORMAL"
-        bmson["info"]["level"] = int(data["DP-N"])
-        bmson_output_filename += "DP-N.bmson"
-    elif dir_index == 8:
-        bmson["info"]["chart_name"] = "DP ANOTHER"
-        bmson["info"]["level"] = int(data["DP-A"])
-        bmson_output_filename += "DP-A.bmson"
-    elif dir_index == 10:
-        bmson["info"]["chart_name"] = "DP LEGGENDARIA"
-        bmson["info"]["level"] = int(data["DP-L"])
-        bmson_output_filename += "DP-L.bmson"
+    try:
+        if dir_index == 0:
+            bmson["info"]["chart_name"] = "SP HYPER"
+            bmson["info"]["level"] = int(data["SP-H"])
+            bmson_output_filename += "SP-H.bmson"
+        elif dir_index == 1:
+            bmson["info"]["chart_name"] = "SP NORMAL"
+            bmson["info"]["level"] = int(data["SP-N"])
+            bmson_output_filename += "SP-N.bmson"
+        elif dir_index == 2:
+            bmson["info"]["chart_name"] = "SP ANOTHER"
+            bmson["info"]["level"] = int(data["SP-A"])
+            bmson_output_filename += "SP-A.bmson"
+        elif dir_index == 3:
+            bmson["info"]["chart_name"] = "SP BEGINNER"
+            bmson["info"]["level"] = int(data["SP-B"])
+            bmson_output_filename += "SP-B.bmson"
+        elif dir_index == 4:
+            bmson["info"]["chart_name"] = "SP LEGGENDARIA"
+            bmson["info"]["level"] = int(data["SP-L"])
+            bmson_output_filename += "SP-L.bmson"
+        elif dir_index == 6:
+            bmson["info"]["chart_name"] = "DP HYPER"
+            bmson["info"]["level"] = int(data["DP-H"])
+            bmson_output_filename += "DP-H.bmson"
+        elif dir_index == 7:
+            bmson["info"]["chart_name"] = "DP NORMAL"
+            bmson["info"]["level"] = int(data["DP-N"])
+            bmson_output_filename += "DP-N.bmson"
+        elif dir_index == 8:
+            bmson["info"]["chart_name"] = "DP ANOTHER"
+            bmson["info"]["level"] = int(data["DP-A"])
+            bmson_output_filename += "DP-A.bmson"
+        elif dir_index == 10:
+            bmson["info"]["chart_name"] = "DP LEGGENDARIA"
+            bmson["info"]["level"] = int(data["DP-L"])
+            bmson_output_filename += "DP-L.bmson"
+    except ValueError:
+        sys.exit("ValueError: Chart difficulty " + bmson["info"]["chart_name"] + " not found! This is probably because of incomplete data, check the Remywiki page for the song listed in the error, and then update the data file.")
 
     # initialize sound_channels JSON object
     sound_channels = []
@@ -138,9 +170,9 @@ def parse_chart(song_id, chart_file, chart_offset, dir_index, audio_samples):
             if bmson["info"]["init_bpm"] == 0:
                 bmson["info"]["init_bpm"] = bpm
                 bmson["bpm_events"].append({
-                        "y": convert_to_pulses(event_offset, bpm_intervals, starter_bmson["info"]["resolution"]),
-                        "bpm": bpm
-                    })
+                    "y": convert_to_pulses(event_offset, bpm_intervals, starter_bmson["info"]["resolution"]),
+                    "bpm": bpm
+                })
                 print(
                     f"Event at {event_offset}ms: BPM initialized to {round(event_value / event_param)}")
             else:
@@ -327,7 +359,8 @@ def parse_all_charts_and_audio(contents_dir, song_id):
         video_path = os.path.join(str(
             song_id), os.path.basename(video_path))
         starter_bmson["bga"]["bga_events"] = [{"id": 1, "y": 0}]
-        starter_bmson["bga"]["bga_header"] = [{"id": 1, "name": os.path.basename(video_path)}]
+        starter_bmson["bga"]["bga_header"] = [
+            {"id": 1, "name": os.path.basename(video_path)}]
 
     # check if chart file path exists, and if so import it (REQUIRED)
     if os.path.exists(os.path.join(contents_dir, "data", "sound", str(song_id), f"{song_id}.1")):
@@ -344,6 +377,8 @@ def parse_all_charts_and_audio(contents_dir, song_id):
     chart_path = os.path.join("out", str(
         song_id), os.path.basename(chart_path))
 
+    container_path = ""
+
     # check if song container path exists, and if so import it (REQUIRED)
     if os.path.exists(os.path.join(contents_dir, "data", "sound", str(song_id), f"{song_id}.2dx")):
         container_path = os.path.join(
@@ -357,14 +392,15 @@ def parse_all_charts_and_audio(contents_dir, song_id):
     elif os.path.exists(os.path.join(contents_dir, "data", "sound", f"{song_id}_ifs", str(song_id), f"{song_id}.s3p")):
         container_path = os.path.join(
             contents_dir, "data", "sound", f"{song_id}_ifs", str(song_id), f"{song_id}.s3p")
-    else:
-        sys.exit("Invalid container path, exiting...")
 
-    print(
-        f"Found container file {os.path.basename(container_path)}, importing it...")
-    shutil.copy(container_path, output_path)
-    container_path = os.path.join("out", str(
-        song_id), os.path.basename(container_path))
+    if (container_path != ""):
+        print(
+            f"Found container file {os.path.basename(container_path)}, importing it...")
+        shutil.copy(container_path, output_path)
+        container_path = os.path.join("out", str(
+            song_id), os.path.basename(container_path))
+    else:
+        print("More than one audio container detected: deferring setting container path for later.")
 
     # check if song preview path exists, and if so import it (REQUIRED)
     if os.path.exists(os.path.join(contents_dir, "data", "sound", str(song_id), f"{song_id}_pre.2dx")):
@@ -390,8 +426,6 @@ def parse_all_charts_and_audio(contents_dir, song_id):
     starter_bmson["info"]["preview_music"] = os.path.join(os.path.basename(container_path).split(".")[0],
                                                           os.path.basename(extracted_preview_path))
 
-    audio_samples = get_audio_samples_from_container(song_id, container_path)
-
     # parse chart directory entries
     with open(chart_path, 'rb') as chart_file:
         chart_directory = []
@@ -405,13 +439,13 @@ def parse_all_charts_and_audio(contents_dir, song_id):
         # but for now, we start with the SP-NORMAL chart
         for i in range(len(chart_directory)):
             if chart_directory[i] != 0:
-                parse_chart(song_id, chart_file,
-                            chart_directory[i], i, audio_samples)
+                parse_chart(contents_dir, song_id, chart_file,
+                            chart_directory[i], i, container_path)
 
     # we're done with source files, remove them from output directory
-    os.remove(chart_path)
-    print(f"{os.path.basename(chart_path)} removed.")
-    os.remove(container_path)
-    print(f"{os.path.basename(container_path)} removed.")
-    os.remove(preview_path)
-    print(f"{os.path.basename(preview_path)} removed.")
+    for root, dirnames, filenames in os.walk(output_path):
+        for file in filenames:
+            (shortname, extension) = os.path.splitext(file)
+            if extension == ".1" or extension == ".2dx" or extension == ".s3p":
+                os.remove(os.path.join(output_path, file))
+                print(f"{file} deleted.")

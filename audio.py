@@ -159,7 +159,7 @@ def generate_bgm(bgm_samples, song_id, dir_index):
     filename += ".ogg"
     bgm_output_location = os.path.join(".", "out", str(song_id),
                                        output_folder, filename)
-    
+
     if os.path.exists(filename):
         print(f"File {os.path.basename(filename)} already exists, skipping.")
     else:
@@ -167,7 +167,7 @@ def generate_bgm(bgm_samples, song_id, dir_index):
         for offset, file in bgm_samples:
             print(
                 f"Torchaudio: Making precalculations for file {os.path.basename(file)} at offset {offset}ms.")
-            file = os.path.join(".", "out", output_folder, file)
+            file = os.path.join(".", "out", str(song_id), file)
             signal, sample_rate = torchaudio.load(file)
             signal_length = int(
                 signal.shape[1] * 44100 / sample_rate + offset * 44100 / 1000)
@@ -176,7 +176,7 @@ def generate_bgm(bgm_samples, song_id, dir_index):
         output_signal = torch.zeros(2, max_length)
 
         for offset, file in bgm_samples:
-            file = os.path.join(".", "out", output_folder, file)
+            file = os.path.join(".", "out", str(song_id), file)
             print(
                 f"Torchaudio: Processing file {os.path.basename(file)} at offset {offset}ms.")
             signal, sample_rate = torchaudio.load(file)
