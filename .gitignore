@@ -1,14 +1,9 @@
 .vscode/
 __pycache__/
 custom/
-ext/
 out/
-test/
-venv/
-data*
-main.*
+main*
 *.so
 *.pyi
 *.pyd
 [A-Z]*
-README.md
