@@ -3,7 +3,6 @@ import os
 import pandas as pd
 import shutil
 import struct
-import sys
 
 from audio import get_audio_samples_from_container, generate_bgm
 from utils import *
@@ -47,7 +46,7 @@ starter_bmson = {
     "bga": {}
 }
 
-alt_containers = json.load(open('ALTERNATE_CONTAINER_FILE'))
+alt_containers = json.load(open('ALT_CONTAINER_FILE'))
 
 EIGHT_ZERO_BYTES = b'\x00\x00\x00\x00\x00\x00\x00\x00'
 END_OF_CHART = b'\xFF\xFF\xFF\x7F\x00\x00\x00\x00'
@@ -64,7 +63,7 @@ def parse_chart(contents_dir, song_id, chart_file, chart_offset, dir_index, cont
             container_dir = os.path.join(
                 contents_dir, "data", "sound", f"{song_id}_ifs", str(song_id))
         else:
-            sys.exit("Invalid container directory edge case, exiting...")
+            error("Invalid container directory edge case, exiting...")
 
         # Since there are multiple audio containers, import all of them
         output_path = f"{os.path.join('.', 'out', str(song_id))}"
@@ -76,12 +75,12 @@ def parse_chart(contents_dir, song_id, chart_file, chart_offset, dir_index, cont
                     shutil.copy(os.path.join(root, file), os.path.join(
                         output_path, os.path.relpath(os.path.join(root, file), container_dir)))
 
-        container_path = os.path.join(".", "out", str(
-            song_id), alt_containers[song_id][dir_index])
+        container_path = os.path.join(".", "out",
+                                      song_id, alt_containers[song_id][str(dir_index)])
 
     audio_samples = get_audio_samples_from_container(song_id, container_path)
 
-    data = pd.read_csv("DATA_FILE", encoding="utf-8", dtype={"ID":"string"})
+    data = pd.read_csv("DATA_FILE", encoding="utf-8", dtype={"ID": "string"})
     data = data.to_dict('records')
 
     for entry in data:
@@ -92,7 +91,7 @@ def parse_chart(contents_dir, song_id, chart_file, chart_offset, dir_index, cont
 
     # Since data has been reassigned, if nothing changed the right entry is not found
     if len(data) > 16:
-        sys.exit("Song entry must exist in data file but doesn't, exiting...")
+        error("Song entry must exist in data file but doesn't, exiting...")
 
     bmson = starter_bmson
     bmson["info"]["title"] = sanitize_input(data["TITLE"])
@@ -141,7 +140,8 @@ def parse_chart(contents_dir, song_id, chart_file, chart_offset, dir_index, cont
             bmson["info"]["level"] = int(data["DP-L"])
             bmson_output_filename += "DP-L.bmson"
     except ValueError:
-        sys.exit("ValueError: Chart difficulty " + bmson["info"]["chart_name"] + " not found! This is probably because of incomplete data, check the Remywiki page for the song listed in the error, and then update the data file.")
+        error("ValueError: Chart difficulty " + bmson["info"]["chart_name"] +
+              " not found! This is probably because of incomplete data, check the Remywiki page for the song listed in the error and then update the data file.")
 
     # initialize sound_channels JSON object
     sound_channels = []
@@ -173,11 +173,11 @@ def parse_chart(contents_dir, song_id, chart_file, chart_offset, dir_index, cont
                     "y": convert_to_pulses(event_offset, bpm_intervals, starter_bmson["info"]["resolution"]),
                     "bpm": bpm
                 })
-                print(
+                print_to_current_line(
                     f"Event at {event_offset}ms: BPM initialized to {round(event_value / event_param)}")
             else:
                 if bpm_intervals[-1] == event_offset:
-                    print(
+                    print_to_current_line(
                         f"BPM change event already exists at {event_offset}ms, ignoring.")
                 else:
                     # TODO: fix this, first loop appends this 1 time, second loop 2 times, third loop 3 times, etc
@@ -185,11 +185,11 @@ def parse_chart(contents_dir, song_id, chart_file, chart_offset, dir_index, cont
                         "y": convert_to_pulses(event_offset, bpm_intervals, starter_bmson["info"]["resolution"]),
                         "bpm": bpm
                     })
-                    print(
+                    print_to_current_line(
                         f"Event at {event_offset}ms: BPM change to {round(event_value / event_param)}")
         elif event_type == 0x07:
             # handle event type 07 (background sample)
-            print(
+            print_to_current_line(
                 f"Event at {event_offset}ms: Background sample {event_value - 1} (0-indexed)")
             bgm_samples.append([event_offset, event_value - 1])
 
@@ -224,7 +224,7 @@ def parse_chart(contents_dir, song_id, chart_file, chart_offset, dir_index, cont
 
         if event_type == 0x00:
             # handle event type 00 (visible note on playfield for P1)
-            print(
+            print_to_current_line(
                 f"Event at {event_offset}ms: Visible note for P1: ",
                 f"{columns_to_keys[event_param]}{', hold for ' + str(event_value) + 'ms' if event_value > 0 else ''}")
             note = {
@@ -237,7 +237,7 @@ def parse_chart(contents_dir, song_id, chart_file, chart_offset, dir_index, cont
                            [event_param]]["notes"].append(note)
         elif event_type == 0x01:
             # handle event type 01 (visible note on playfield for P2)
-            print(
+            print_to_current_line(
                 f"Event at {event_offset}ms: Visible note for P2: ",
                 f"{columns_to_keys[event_param]}{', hold for ' + str(event_value) + 'ms' if event_value > 0 else ''}")
             note = {
@@ -250,46 +250,49 @@ def parse_chart(contents_dir, song_id, chart_file, chart_offset, dir_index, cont
                            [event_param]]["notes"].append(note)
         elif event_type == 0x02:
             # handle event type 02 (sample change for P1)
-            print(
+            print_to_current_line(
                 f"Event at {event_offset}ms: Sample change for P1: ",
                 f"{columns_to_keys[event_param]} => sample {event_value - 1} (0-indexed)")
             current_samples[0][event_param] = event_value - 1
         elif event_type == 0x03:
             # handle event type 03 (sample change for P2)
-            print(
+            print_to_current_line(
                 f"Event at {event_offset}ms: Sample change for P2: ",
                 f"{columns_to_keys[event_param]} => sample {event_value - 1} (0-indexed)")
             current_samples[1][event_param] = event_value - 1
         elif event_type == 0x04:
             # we already did this, so ignore
-            print(f"Event at {event_offset}ms: BPM change, ignoring.")
+            print_to_current_line(
+                f"Event at {event_offset}ms: BPM change, ignoring.")
         elif event_type == 0x05:
             # handle (or more specifically, don't handle) event type 05 (meter info)
-            print(f"Event at {event_offset}ms: Meter information, ignoring.")
+            print_to_current_line(
+                f"Event at {event_offset}ms: Meter information, ignoring.")
         elif event_type == 0x06:
             # handle event type 06 (end of song)
-            print(f"Event at {event_offset}ms: End of song, ignoring.")
+            print_to_current_line(
+                f"Event at {event_offset}ms: End of song, ignoring.")
         elif event_type == 0x07:
             # we already did this, so ignore.
-            print(
+            print_to_current_line(
                 f"Event at {event_offset}ms: Background sample, ignoring.")
         elif event_type == 0x08:
             # handle (or more specifically, don't handle) event type 08 (timing window info)
-            print(
+            print_to_current_line(
                 f"Event at {event_offset}ms: Timing window information, ignoring.")
         elif event_type == 0x0C:
             # handle event type 0C (measure bar)
-            print(
+            print_to_current_line(
                 f"Event at {event_offset}ms: Measure bar for P{event_param + 1}")
             bmson["lines"].append({"y": convert_to_pulses(
                 event_offset, bpm_intervals, starter_bmson["info"]["resolution"])})
         elif event_type == 0x10:
             # handle event type 10 (note count)
-            print(
+            print_to_current_line(
                 f"Event at {event_offset}ms: Note count for P{event_param + 1}: {event_value}")
         else:
             # handle unknown events
-            sys.exit(
+            error(
                 f"Unknown event at {event_offset}ms, type {hex(event_type)}, param {hex(event_param)} and value {hex(event_value)}.")
 
         event = chart_file.read(8)
@@ -302,7 +305,7 @@ def parse_chart(contents_dir, song_id, chart_file, chart_offset, dir_index, cont
     with open(bmson_output_filename, "w", encoding="utf-8") as file:
         json.dump(bmson, file, ensure_ascii=False, sort_keys=True)
 
-    print(f"\'{os.path.basename(bmson_output_filename)}\' written.")
+    success(f"\'{os.path.basename(bmson_output_filename)}\' written.")
 
 
 def parse_all_charts_and_audio(contents_dir, song_id):
@@ -326,7 +329,7 @@ def parse_all_charts_and_audio(contents_dir, song_id):
         starter_bmson["info"]["title_image"] = os.path.basename(
             title_image_path)
     else:
-        print("No title image found, I hope you know what you're doing!")
+        print("No title image found, this is probably intentional.")
 
     # check if eyecatch image path exists, and if so import it (optional)
     eyecatch_image_path = os.path.join(
@@ -340,7 +343,7 @@ def parse_all_charts_and_audio(contents_dir, song_id):
         starter_bmson["info"]["eyecatch_image"] = os.path.basename(
             eyecatch_image_path)
     else:
-        print("No eyecatch image found, I hope you know what you're doing!")
+        warning("No eyecatch image found, I hope you know what you're doing!")
 
     # check if video path exists, and if so import it (optional)
     video_path = ""
@@ -350,7 +353,7 @@ def parse_all_charts_and_audio(contents_dir, song_id):
         video_path = os.path.join(
             contents_dir, "data", "movie", f"{song_id}.mp4")
     else:
-        print("No video found, I hope you know what you're doing!")
+        warning("No video found, I hope you know what you're doing!")
 
     if video_path != "":
         print(
@@ -370,7 +373,7 @@ def parse_all_charts_and_audio(contents_dir, song_id):
         chart_path = os.path.join(
             contents_dir, "data", "sound", f"{song_id}_ifs", str(song_id), f"{song_id}.1")
     else:
-        sys.exit("Invalid chart path, exiting...")
+        error("Invalid chart path, exiting...")
 
     print(f"Found chart file {os.path.basename(chart_path)}, importing it...")
     shutil.copy(chart_path, output_path)
@@ -411,7 +414,7 @@ def parse_all_charts_and_audio(contents_dir, song_id):
         preview_path = os.path.join(contents_dir, "data", "sound", f"{song_id}_ifs", str(
             song_id), f"{song_id}_pre.2dx")
     else:
-        sys.exit("Invalid preview path, exiting...")
+        error("Invalid preview path, exiting...")
 
     print(
         f"Found preview file {os.path.basename(preview_path)}, importing it...")
@@ -423,8 +426,8 @@ def parse_all_charts_and_audio(contents_dir, song_id):
     extracted_preview_path = \
         get_audio_samples_from_container(song_id,
                                          os.path.join(".", "out", str(song_id), os.path.basename(preview_path)))[0]
-    starter_bmson["info"]["preview_music"] = os.path.join(os.path.basename(container_path).split(".")[0],
-                                                          os.path.basename(extracted_preview_path))
+    starter_bmson["info"]["preview_music"] = os.path.join(
+        song_id, os.path.basename(extracted_preview_path))
 
     # parse chart directory entries
     with open(chart_path, 'rb') as chart_file:

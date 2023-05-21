@@ -1,9 +1,10 @@
 import os
 import struct
 import subprocess
-import sys
 import torch
 import torchaudio
+
+from utils import *
 
 
 def get_audio_samples_from_container(song_id, container):
@@ -25,7 +26,7 @@ def get_audio_samples_from_container(song_id, container):
     elif container_extension == "s3p":
         print(".s3p file detected (probably)")
     else:
-        sys.exit("Invalid or nonexistent file type detected, exiting...")
+        error("Invalid or nonexistent file type detected, exiting...")
 
     with open(container, "rb") as infile:
         print(f"{os.path.basename(infile.name)} loaded successfully.")
@@ -57,7 +58,7 @@ def get_audio_samples_from_container(song_id, container):
             elif container_extension == "s3p":
                 infile.seek(i * 8 + 8)
             else:
-                sys.exit("Invalid or nonexistent file type detected, exiting...")
+                error("Invalid or nonexistent file type detected, exiting...")
 
             offset = struct.unpack("<I", infile.read(4))[0]
 
@@ -65,9 +66,9 @@ def get_audio_samples_from_container(song_id, container):
             infile.seek(offset)
             magic_string = infile.read(4)
             if container_extension == "2dx" and magic_string != b'2DX9':
-                sys.exit("Not a valid 2DX audio file, exiting...")
+                error("Not a valid 2DX audio file, exiting...")
             elif container_extension == "s3p" and magic_string != b'S3V0':
-                sys.exit("Not a valid S3V audio file, exiting...")
+                error("Not a valid S3V audio file, exiting...")
 
             # init
             offset += 4
@@ -87,7 +88,7 @@ def get_audio_samples_from_container(song_id, container):
             elif container_extension == "s3p":
                 audio_extension = "wma"
             else:
-                sys.exit("Invalid container extension, exiting...")
+                error("Invalid container extension, exiting...")
 
             if is_preview_file:
                 filename = f"{os.path.join(output_path, f'preview.{audio_extension}')}"
@@ -154,7 +155,7 @@ def generate_bgm(bgm_samples, song_id, dir_index):
         case 10:
             filename += "DP-L"
         case _:
-            sys.exit("Invalid directory index, exiting...")
+            error("Invalid directory index, exiting...")
 
     filename += ".ogg"
     bgm_output_location = os.path.join(".", "out", str(song_id),
@@ -167,6 +168,7 @@ def generate_bgm(bgm_samples, song_id, dir_index):
         for offset, file in bgm_samples:
             print(
                 f"Torchaudio: Making precalculations for file {os.path.basename(file)} at offset {offset}ms.")
+            print("Torchaudio: Initial pass complete.")
             file = os.path.join(".", "out", str(song_id), file)
             signal, sample_rate = torchaudio.load(file)
             signal_length = int(
@@ -179,6 +181,8 @@ def generate_bgm(bgm_samples, song_id, dir_index):
             file = os.path.join(".", "out", str(song_id), file)
             print(
                 f"Torchaudio: Processing file {os.path.basename(file)} at offset {offset}ms.")
+            print("")
+            print("Torchaudio: Final pass complete.")
             signal, sample_rate = torchaudio.load(file)
             signal = torchaudio.transforms.Resample(sample_rate, 44100)(signal)
             if signal.shape[0] == 1:
