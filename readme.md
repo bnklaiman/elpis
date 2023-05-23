@@ -20,4 +20,5 @@ Since this is a library this is not meant to be "run". Due to the necessary use 
 - Chart file information: [this page](https://github.com/SaxxonPike/rhythm-game-formats/blob/master/iidx/1.md) in the above repo
 - Audio container information: GitHub user hannahherbig's [2dxrender](https://github.com/hannahherbig/2dxrender)
     - Handling of audio containers is optimized from separate C# implementations in the above repo.
-- An unnamed Discord user who wishes to remain anonymous, who provided valuable test files without which this project would not be feasible.
+### Ultra-special thanks to:
+- An unnamed Discord user who wishes to remain anonymous, who provided invaluable test files without which this project would not be feasible.
