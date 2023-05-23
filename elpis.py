@@ -68,15 +68,18 @@ def parse_chart(contents_dir, song_id, chart_file, chart_offset, dir_index, cont
         # Since there are multiple audio containers, import all of them
         output_path = f"{os.path.join('.', 'out', str(song_id))}"
         print("Looking for audio container files...")
-        for root, dirnames, filenames in os.walk(container_dir):
+        for root, _, filenames in os.walk(container_dir):
             for file in filenames:
-                (shortname, extension) = os.path.splitext(file)
+                (_, extension) = os.path.splitext(file)
                 if extension == ".2dx" or extension == ".s3p":
                     shutil.copy(os.path.join(root, file), os.path.join(
                         output_path, os.path.relpath(os.path.join(root, file), container_dir)))
-
-        container_path = os.path.join(".", "out",
-                                      song_id, alt_containers[song_id][str(dir_index)])
+        
+    try:
+        if (os.path.exists(os.path.join(".", "out", song_id, alt_containers[song_id][str(dir_index)]))):
+            container_path = os.path.join(".", "out", song_id, alt_containers[song_id][str(dir_index)])
+    except KeyError:
+        print("No alternate containers found.")
 
     audio_samples = get_audio_samples_from_container(song_id, container_path)
 
@@ -173,11 +176,11 @@ def parse_chart(contents_dir, song_id, chart_file, chart_offset, dir_index, cont
                     "y": convert_to_pulses(event_offset, bpm_intervals, starter_bmson["info"]["resolution"]),
                     "bpm": bpm
                 })
-                print_to_current_line(
+                print(
                     f"Event at {event_offset}ms: BPM initialized to {round(event_value / event_param)}")
             else:
                 if bpm_intervals[-1] == event_offset:
-                    print_to_current_line(
+                    print(
                         f"BPM change event already exists at {event_offset}ms, ignoring.")
                 else:
                     # TODO: fix this, first loop appends this 1 time, second loop 2 times, third loop 3 times, etc
@@ -185,11 +188,11 @@ def parse_chart(contents_dir, song_id, chart_file, chart_offset, dir_index, cont
                         "y": convert_to_pulses(event_offset, bpm_intervals, starter_bmson["info"]["resolution"]),
                         "bpm": bpm
                     })
-                    print_to_current_line(
+                    print(
                         f"Event at {event_offset}ms: BPM change to {round(event_value / event_param)}")
         elif event_type == 0x07:
             # handle event type 07 (background sample)
-            print_to_current_line(
+            print(
                 f"Event at {event_offset}ms: Background sample {event_value - 1} (0-indexed)")
             bgm_samples.append([event_offset, event_value - 1])
 
@@ -224,8 +227,8 @@ def parse_chart(contents_dir, song_id, chart_file, chart_offset, dir_index, cont
 
         if event_type == 0x00:
             # handle event type 00 (visible note on playfield for P1)
-            print_to_current_line(
-                f"Event at {event_offset}ms: Visible note for P1: ",
+            print(
+                f"Event at {event_offset}ms: Visible note for P1:",
                 f"{columns_to_keys[event_param]}{', hold for ' + str(event_value) + 'ms' if event_value > 0 else ''}")
             note = {
                 "x": event_param + 1,
@@ -237,8 +240,8 @@ def parse_chart(contents_dir, song_id, chart_file, chart_offset, dir_index, cont
                            [event_param]]["notes"].append(note)
         elif event_type == 0x01:
             # handle event type 01 (visible note on playfield for P2)
-            print_to_current_line(
-                f"Event at {event_offset}ms: Visible note for P2: ",
+            print(
+                f"Event at {event_offset}ms: Visible note for P2:",
                 f"{columns_to_keys[event_param]}{', hold for ' + str(event_value) + 'ms' if event_value > 0 else ''}")
             note = {
                 "x": event_param + 9,
@@ -250,50 +253,59 @@ def parse_chart(contents_dir, song_id, chart_file, chart_offset, dir_index, cont
                            [event_param]]["notes"].append(note)
         elif event_type == 0x02:
             # handle event type 02 (sample change for P1)
-            print_to_current_line(
-                f"Event at {event_offset}ms: Sample change for P1: ",
-                f"{columns_to_keys[event_param]} => sample {event_value - 1} (0-indexed)")
-            current_samples[0][event_param] = event_value - 1
+            if event_param != 8:
+                # malformed event, discovered in song id #01002
+                print(
+                    f"Event at {event_offset}ms: Sample change for P1:",
+                    f"{columns_to_keys[event_param]} => sample {event_value - 1} (0-indexed)")
+                current_samples[0][event_param] = event_value - 1
+            else:
+                print(f"Event at {event_offset}ms: ILLEGAL SAMPLE CHANGE for P1: Key {event_param} does not exist!")
         elif event_type == 0x03:
             # handle event type 03 (sample change for P2)
-            print_to_current_line(
-                f"Event at {event_offset}ms: Sample change for P2: ",
-                f"{columns_to_keys[event_param]} => sample {event_value - 1} (0-indexed)")
-            current_samples[1][event_param] = event_value - 1
+            if event_param != 8:
+                # malformed event, discovered in song id #01002
+                print(
+                    f"Event at {event_offset}ms: Sample change for P2:",
+                    f"{columns_to_keys[event_param]} => sample {event_value - 1} (0-indexed)")
+                current_samples[1][event_param] = event_value - 1
+            else:
+                print(f"Event at {event_offset}ms: ILLEGAL SAMPLE CHANGE for P2: Key {event_param} does not exist!")
         elif event_type == 0x04:
             # we already did this, so ignore
-            print_to_current_line(
+            print(
                 f"Event at {event_offset}ms: BPM change, ignoring.")
         elif event_type == 0x05:
             # handle (or more specifically, don't handle) event type 05 (meter info)
-            print_to_current_line(
+            print(
                 f"Event at {event_offset}ms: Meter information, ignoring.")
         elif event_type == 0x06:
             # handle event type 06 (end of song)
-            print_to_current_line(
+            print(
                 f"Event at {event_offset}ms: End of song, ignoring.")
         elif event_type == 0x07:
             # we already did this, so ignore.
-            print_to_current_line(
+            print(
                 f"Event at {event_offset}ms: Background sample, ignoring.")
         elif event_type == 0x08:
             # handle (or more specifically, don't handle) event type 08 (timing window info)
-            print_to_current_line(
+            print(
                 f"Event at {event_offset}ms: Timing window information, ignoring.")
         elif event_type == 0x0C:
             # handle event type 0C (measure bar)
-            print_to_current_line(
+            print(
                 f"Event at {event_offset}ms: Measure bar for P{event_param + 1}")
             bmson["lines"].append({"y": convert_to_pulses(
                 event_offset, bpm_intervals, starter_bmson["info"]["resolution"])})
         elif event_type == 0x10:
             # handle event type 10 (note count)
-            print_to_current_line(
+            print(
                 f"Event at {event_offset}ms: Note count for P{event_param + 1}: {event_value}")
         else:
             # handle unknown events
-            error(
-                f"Unknown event at {event_offset}ms, type {hex(event_type)}, param {hex(event_param)} and value {hex(event_value)}.")
+            if event_type != 0x0D:
+                error(
+                    f"Unknown event at {event_offset}ms, type {hex(event_type)}, param {hex(event_param)} and value {hex(event_value)}.")
 
         event = chart_file.read(8)
 
@@ -316,6 +328,8 @@ def parse_all_charts_and_audio(contents_dir, song_id):
     else:
         os.makedirs(output_path)
         print(f"Output path {output_path} created.")
+
+    # External files
 
     # check if title image path exists, and if so import it (optional)
     title_image_path = os.path.join(
@@ -365,62 +379,47 @@ def parse_all_charts_and_audio(contents_dir, song_id):
         starter_bmson["bga"]["bga_header"] = [
             {"id": 1, "name": os.path.basename(video_path)}]
 
-    # check if chart file path exists, and if so import it (REQUIRED)
-    if os.path.exists(os.path.join(contents_dir, "data", "sound", str(song_id), f"{song_id}.1")):
-        chart_path = os.path.join(
-            contents_dir, "data", "sound", str(song_id), f"{song_id}.1")
-    elif os.path.exists(os.path.join(contents_dir, "data", "sound", f"{song_id}_ifs", str(song_id), f"{song_id}.1")):
-        chart_path = os.path.join(
-            contents_dir, "data", "sound", f"{song_id}_ifs", str(song_id), f"{song_id}.1")
+    # Internal files
+
+    # import all relevant files
+    sound_path = ""
+    if os.path.exists(os.path.join(contents_dir, "data", "sound", song_id)):
+        sound_path = os.path.join(contents_dir, "data", "sound", song_id)
+    elif os.path.exists(os.path.join(contents_dir, "data", "sound", f"{song_id}_ifs", song_id)):
+        sound_path = os.path.join(contents_dir, "data", "sound", f"{song_id}_ifs", song_id)
+    else:
+        error("Invalid sound path, exiting...")
+
+    for _, _, filenames in os.walk(os.path.join(".", sound_path)):
+        for file in filenames:
+            shutil.copy(os.path.join(".", sound_path, file), output_path)
+            print(f"{os.path.basename(file)} imported.")
+
+    # check if chart file path exists (REQUIRED)
+    chart_path = ""
+    if os.path.exists(os.path.join(".", "out", song_id, f"{song_id}.1")):
+        chart_path = os.path.join(".", "out", song_id, f"{song_id}.1")
+        print(f"Found chart file {os.path.basename(chart_path)}.")
     else:
         error("Invalid chart path, exiting...")
 
-    print(f"Found chart file {os.path.basename(chart_path)}, importing it...")
-    shutil.copy(chart_path, output_path)
-    chart_path = os.path.join("out", str(
-        song_id), os.path.basename(chart_path))
-
+    # check if song container path exists
     container_path = ""
-
-    # check if song container path exists, and if so import it (REQUIRED)
-    if os.path.exists(os.path.join(contents_dir, "data", "sound", str(song_id), f"{song_id}.2dx")):
-        container_path = os.path.join(
-            contents_dir, "data", "sound", str(song_id), f"{song_id}.2dx")
-    elif os.path.exists(os.path.join(contents_dir, "data", "sound", str(song_id), f"{song_id}.s3p")):
-        container_path = os.path.join(
-            contents_dir, "data", "sound", str(song_id), f"{song_id}.s3p")
-    elif os.path.exists(os.path.join(contents_dir, "data", "sound", f"{song_id}_ifs", str(song_id), f"{song_id}.2dx")):
-        container_path = os.path.join(
-            contents_dir, "data", "sound", f"{song_id}_ifs", str(song_id), f"{song_id}.2dx")
-    elif os.path.exists(os.path.join(contents_dir, "data", "sound", f"{song_id}_ifs", str(song_id), f"{song_id}.s3p")):
-        container_path = os.path.join(
-            contents_dir, "data", "sound", f"{song_id}_ifs", str(song_id), f"{song_id}.s3p")
-
-    if (container_path != ""):
-        print(
-            f"Found container file {os.path.basename(container_path)}, importing it...")
-        shutil.copy(container_path, output_path)
-        container_path = os.path.join("out", str(
-            song_id), os.path.basename(container_path))
+    if os.path.exists(os.path.join(".", "out", song_id, f"{song_id}.2dx")):
+        container_path = os.path.join(".", "out", song_id, f"{song_id}.2dx")
+        print(f"Found container file {os.path.basename(container_path)}.")
+    elif os.path.exists(os.path.join(".", "out", song_id, f"{song_id}.s3p")):
+        container_path = os.path.join(".", "out", song_id, f"{song_id}.s3p")
+        print(f"Found container file {os.path.basename(container_path)}.")
     else:
-        print("More than one audio container detected: deferring setting container path for later.")
+        print("Container file not yet found, circling back later.")
 
     # check if song preview path exists, and if so import it (REQUIRED)
-    if os.path.exists(os.path.join(contents_dir, "data", "sound", str(song_id), f"{song_id}_pre.2dx")):
-        preview_path = os.path.join(
-            contents_dir, "data", "sound", str(song_id), f"{song_id}_pre.2dx")
-    elif os.path.exists(
-            os.path.join(contents_dir, "data", "sound", f"{song_id}_ifs", str(song_id), f"{song_id}_pre.2dx")):
-        preview_path = os.path.join(contents_dir, "data", "sound", f"{song_id}_ifs", str(
-            song_id), f"{song_id}_pre.2dx")
+    if os.path.exists(os.path.join(".", "out", song_id, f"{song_id}_pre.2dx")):
+        preview_path = os.path.join(".", "out", song_id, f"{song_id}_pre.2dx")
+        print(f"Found preview file {os.path.basename(preview_path)}.")
     else:
         error("Invalid preview path, exiting...")
-
-    print(
-        f"Found preview file {os.path.basename(preview_path)}, importing it...")
-    shutil.copy(preview_path, output_path)
-    preview_path = os.path.join("out", str(
-        song_id), os.path.basename(preview_path))
 
     # extract audio preview
     extracted_preview_path = \
@@ -439,16 +438,16 @@ def parse_all_charts_and_audio(contents_dir, song_id):
             file_offset += 8
 
         # iterate over all charts found inside chart file
-        # but for now, we start with the SP-NORMAL chart
+        # but for now, we start with the SP-HYPER chart
         for i in range(len(chart_directory)):
             if chart_directory[i] != 0:
                 parse_chart(contents_dir, song_id, chart_file,
                             chart_directory[i], i, container_path)
 
     # we're done with source files, remove them from output directory
-    for root, dirnames, filenames in os.walk(output_path):
+    for _, _, filenames in os.walk(output_path):
         for file in filenames:
-            (shortname, extension) = os.path.splitext(file)
+            (_, extension) = os.path.splitext(file)
             if extension == ".1" or extension == ".2dx" or extension == ".s3p":
                 os.remove(os.path.join(output_path, file))
                 print(f"{file} deleted.")

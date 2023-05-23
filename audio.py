@@ -168,21 +168,19 @@ def generate_bgm(bgm_samples, song_id, dir_index):
         for offset, file in bgm_samples:
             print(
                 f"Torchaudio: Making precalculations for file {os.path.basename(file)} at offset {offset}ms.")
-            print("Torchaudio: Initial pass complete.")
             file = os.path.join(".", "out", str(song_id), file)
             signal, sample_rate = torchaudio.load(file)
             signal_length = int(
                 signal.shape[1] * 44100 / sample_rate + offset * 44100 / 1000)
             if signal_length > max_length:
                 max_length = signal_length
+        print("Torchaudio: Initial pass complete.")
         output_signal = torch.zeros(2, max_length)
 
         for offset, file in bgm_samples:
             file = os.path.join(".", "out", str(song_id), file)
             print(
                 f"Torchaudio: Processing file {os.path.basename(file)} at offset {offset}ms.")
-            print("")
-            print("Torchaudio: Final pass complete.")
             signal, sample_rate = torchaudio.load(file)
             signal = torchaudio.transforms.Resample(sample_rate, 44100)(signal)
             if signal.shape[0] == 1:
@@ -190,8 +188,9 @@ def generate_bgm(bgm_samples, song_id, dir_index):
             start_sample = int(offset * 44100 / 1000)
             end_sample = start_sample + signal.shape[1]
             output_signal[:, start_sample:end_sample] += signal
-
+        print("Torchaudio: Final pass complete.")
         torchaudio.save(bgm_output_location, output_signal, 44100)
+        
         print(f"File {os.path.basename(filename)} saved.")
 
     return os.path.join(str(output_folder), filename)

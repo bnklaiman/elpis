@@ -16,21 +16,11 @@ def error(text):
     sys.exit()
 
 
-def clear_line():
-    print('\033[1A', end='\x1b[2K')
-    # "Black magic! Oh yeah!"   - Francis of the Filth, 2015
-
-
-def print_to_current_line(text, extra=""):
-    clear_line()
-    print(text, extra)
-
-
 def sanitize_input(data):
     if data != data:  # this checks for misc. NaNs
         data = ""
 
-    data = data.replace(u'\xa0', u' ')
+    data = data.replace('\xa0', ' ')
     return data
 
 
