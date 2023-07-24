@@ -1,11 +1,10 @@
 # Elpis
-## (currently w.i.p. though hopefully not for too much longer)
 
 **FOR EDUCATIONAL PURPOSES ONLY.**
 
 ## What does this do?
 
-This is a library that can take `.1` level files and `.2dx` or `.s3p` audio container files from a certain rhythm game and converts them into the open `.bmson` and `.ogg` level and audio formats, respectively.
+This is a library that can take `.1` level files and `.2dx` or `.s3p` audio container files from the rhythm game "beatmania IIDX" and converts them into the open `.bmson` and `.ogg` level and audio formats, respectively.
 
 ## That's a strange name, why is it called that?
 
