@@ -158,6 +158,8 @@ def parse_chart(contents_dir, song_id, chart_file, chart_offset, dir_index, cont
     chart_file.seek(chart_offset)
     event = chart_file.read(8)
     bgm_samples = []
+    bmson["bpm_events"] = []
+    bmson["lines"] = []
     while event and END_OF_CHART not in event:
         event_offset = (event[3] << 24) | (
             event[2] << 16) | (event[1] << 8) | (event[0])
@@ -183,7 +185,6 @@ def parse_chart(contents_dir, song_id, chart_file, chart_offset, dir_index, cont
                     print(
                         f"BPM change event already exists at {event_offset}ms, ignoring.")
                 else:
-                    # TODO: fix this, first loop appends this 1 time, second loop 2 times, third loop 3 times, etc
                     bmson["bpm_events"].append({
                         "y": convert_to_pulses(event_offset, bpm_intervals, starter_bmson["info"]["resolution"]),
                         "bpm": bpm

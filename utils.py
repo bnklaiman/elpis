@@ -1,5 +1,6 @@
 import os
 import sys
+import numpy as np
 from termcolor import cprint
 
 
@@ -14,6 +15,13 @@ def warning(text):
 def error(text):
     cprint("[!] " + text, "red")
     sys.exit()
+
+
+def to_base_36(num):
+    if num < 36:
+        return("0" + np.base_repr(num, 36))
+    else:
+        return(np.base_repr(num, 36))
 
 
 def sanitize_input(data):
@@ -41,7 +49,3 @@ def convert_to_pulses(offset_ms, tempo_changes, pulses_per_beat=240):
     ms_per_pulse = (60 * 1000) / (current_bpm * pulses_per_beat)
     pulses += (offset_ms - current_time) / ms_per_pulse
     return int(pulses)
-
-
-def handle_container_edge_case(container_dir, song_id, dir_index):
-    return container_dir.split(os.path.sep).append()

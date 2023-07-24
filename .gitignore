@@ -3,6 +3,7 @@ __pycache__/
 custom/
 out/
 main*
+rename*
 *.so
 *.pyi
 *.pyd
