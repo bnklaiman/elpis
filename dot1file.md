@@ -121,19 +121,20 @@ the offset of the event in seconds.
 
 ```
 Value(h) Value(d) Description
-00       0        Visible note on the playfield for player 1
-01       1        Visible note on the playfield for player 2
-02       2        Sample change for player 1
-03       3        Sample change for player 2
-04       4        Tempo change (likely the hardest part)
-05       5        Meter information (probably irrelevant since we're keeping track of events in milliseconds since start)
-06       6        End of song (probably irrelevant, this will likely be automatic)
-07       7        BGM sound
-08       8        Timing window information (irrelevant)
-0C       12       Measure bar
-10       16       Note count information
-??       ??       Backspin scratch (BSS)
-??       ??       Multi-Spin scratch (MSS)
+0x00        0       (*) Visible note on the playfield for player 1
+0x01        1       (*) Visible note on the playfield for player 2
+0x02        2       Sample change for player 1
+0x03        3       Sample change for player 2
+0x04        4       Tempo change (likely the hardest part)
+0x05        5       Meter information (probably irrelevant since we're keeping track of events in milliseconds since start)
+0x06        6       End of song (probably irrelevant, this will likely be automatic)
+0x07        7       BGM sound
+0x08        8       Timing window information (irrelevant)
+0x0C       12       Measure bar
+0x10       16       Note count information
+0x??       ??       Backspin scratch (BSS)
+
+(*) If this event has a parameter of 0x6D, it will be a Multi-Spin Scratch (MSS).
 ```
 
 #### Visible Note (00, 01)

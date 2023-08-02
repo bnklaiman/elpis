@@ -15,7 +15,7 @@ columns_to_keys = {
     4: "Key 5",
     5: "Key 6",
     6: "Key 7",
-    7: "Scratch"
+    7: "Scratch",
 }
 
 # initialize template bmson file
@@ -151,7 +151,10 @@ def parse_chart(contents_dir, song_id, chart_file, chart_offset, dir_index, cont
     for i in range(len(audio_samples)):
         sound_channels.append({"name": audio_samples[i], "notes": []})
 
-    current_samples = [[0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]]
+    current_samples = {
+        "P1": [0, 0, 0, 0, 0, 0, 0, 0],
+        "P2": [0, 0, 0, 0, 0, 0, 0, 0],
+    }
 
     # initialize bpm and bpm intervals, and background audio samples and their respective offsets
     bpm_intervals = []
@@ -226,32 +229,45 @@ def parse_chart(contents_dir, song_id, chart_file, chart_offset, dir_index, cont
         event_param = event[5]
         event_value = (event[7] << 8) | (event[6])
 
+        is_event_mss = event_param == 0x6B
         if event_type == 0x00:
             # handle event type 00 (visible note on playfield for P1)
-            print(
-                f"Event at {event_offset}ms: Visible note for P1:",
-                f"{columns_to_keys[event_param]}{', hold for ' + str(event_value) + 'ms' if event_value > 0 else ''}")
+            if is_event_mss:
+                # handle Multi-Spin Scratch
+                event_param = 0x07
+                print(
+                    f"Event at {event_offset}ms: Multi-Spin Scratch for P1,",
+                    f"hold for {event_value}ms")
+            else:
+                print(
+                    f"Event at {event_offset}ms: Visible note for P1:",
+                    f"{columns_to_keys[event_param]}{', hold for ' + str(event_value) + 'ms' if event_value > 0 else ''}")
             note = {
                 "x": event_param + 1,
                 "y": convert_to_pulses(event_offset, bpm_intervals, starter_bmson["info"]["resolution"]),
-                "l": convert_to_pulses(event_value, bpm_intervals, starter_bmson["info"]["resolution"]),
+                "l": convert_to_pulses(event_value, bpm_intervals, starter_bmson["info"]["resolution"]) - 3,
                 "c": False
             }
-            sound_channels[current_samples[0]
-                           [event_param]]["notes"].append(note)
+            sound_channels[current_samples["P1"][event_param]]["notes"].append(note)
         elif event_type == 0x01:
             # handle event type 01 (visible note on playfield for P2)
-            print(
-                f"Event at {event_offset}ms: Visible note for P2:",
-                f"{columns_to_keys[event_param]}{', hold for ' + str(event_value) + 'ms' if event_value > 0 else ''}")
+            if is_event_mss:
+                # handle Multi-Spin Scratch
+                event_param = 0x07
+                print(
+                    f"Event at {event_offset}ms: Multi-Spin Scratch for P2,",
+                    f"hold for {event_value}ms")
+            else:
+                print(
+                    f"Event at {event_offset}ms: Visible note for P2:",
+                    f"{columns_to_keys[event_param]}{', hold for ' + str(event_value) + 'ms' if event_value > 0 else ''}")
             note = {
                 "x": event_param + 9,
                 "y": convert_to_pulses(event_offset, bpm_intervals, starter_bmson["info"]["resolution"]),
-                "l": convert_to_pulses(event_value, bpm_intervals, starter_bmson["info"]["resolution"]),
+                "l": convert_to_pulses(event_value, bpm_intervals, starter_bmson["info"]["resolution"]) - 3,
                 "c": False
             }
-            sound_channels[current_samples[1]
-                           [event_param]]["notes"].append(note)
+            sound_channels[current_samples["P2"][event_param]]["notes"].append(note)
         elif event_type == 0x02:
             # handle event type 02 (sample change for P1)
             if event_param != 8:
@@ -259,7 +275,7 @@ def parse_chart(contents_dir, song_id, chart_file, chart_offset, dir_index, cont
                 print(
                     f"Event at {event_offset}ms: Sample change for P1:",
                     f"{columns_to_keys[event_param]} => sample {event_value - 1} (0-indexed)")
-                current_samples[0][event_param] = event_value - 1
+                current_samples["P1"][event_param] = event_value - 1
             else:
                 print(f"Event at {event_offset}ms: ILLEGAL SAMPLE CHANGE for P1: Key {event_param} does not exist!")
         elif event_type == 0x03:
@@ -269,7 +285,7 @@ def parse_chart(contents_dir, song_id, chart_file, chart_offset, dir_index, cont
                 print(
                     f"Event at {event_offset}ms: Sample change for P2:",
                     f"{columns_to_keys[event_param]} => sample {event_value - 1} (0-indexed)")
-                current_samples[1][event_param] = event_value - 1
+                current_samples["P2"][event_param] = event_value - 1
             else:
                 print(f"Event at {event_offset}ms: ILLEGAL SAMPLE CHANGE for P2: Key {event_param} does not exist!")
         elif event_type == 0x04:
