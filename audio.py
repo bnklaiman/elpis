@@ -95,10 +95,13 @@ def get_audio_samples_from_container(song_id, container):
             else:
                 filename = f"{os.path.join(output_path, f'{i:04d}.{audio_extension}')}"
 
-            with open(filename, 'wb') as outfile:
-                outfile.write(audio_bytes)
+            if os.path.exists(filename):
+                print(f"Extracted file {os.path.basename(filename)} already exists, skipping...")
+            else:
+                with open(filename, 'wb') as outfile:
+                    outfile.write(audio_bytes)
 
-            print(f"{os.path.basename(filename)}: {len(audio_bytes)} bytes written.")
+                print(f"{os.path.basename(filename)}: {len(audio_bytes)} bytes written.")
 
         print("All audio samples extracted.")
         for filename in os.listdir(output_path):
@@ -167,7 +170,7 @@ def generate_bgm(bgm_samples, song_id, dir_index):
         max_length = 0
         for offset, file in bgm_samples:
             print(
-                f"Torchaudio: Making precalculations for file {os.path.basename(file)} at offset {offset}ms.")
+                f"Torchaudio: Placing file {os.path.basename(file)} at offset {offset}ms.")
             file = os.path.join(".", "out", str(song_id), file)
             signal, sample_rate = torchaudio.load(file)
             signal_length = int(
@@ -180,7 +183,7 @@ def generate_bgm(bgm_samples, song_id, dir_index):
         for offset, file in bgm_samples:
             file = os.path.join(".", "out", str(song_id), file)
             print(
-                f"Torchaudio: Processing file {os.path.basename(file)} at offset {offset}ms.")
+                f"Torchaudio: Merging file {os.path.basename(file)} at offset {offset}ms.")
             signal, sample_rate = torchaudio.load(file)
             signal = torchaudio.transforms.Resample(sample_rate, 44100)(signal)
             if signal.shape[0] == 1:

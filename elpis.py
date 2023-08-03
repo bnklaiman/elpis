@@ -245,9 +245,12 @@ def parse_chart(contents_dir, song_id, chart_file, chart_offset, dir_index, cont
             note = {
                 "x": event_param + 1,
                 "y": convert_to_pulses(event_offset, bpm_intervals, starter_bmson["info"]["resolution"]),
-                "l": convert_to_pulses(event_value, bpm_intervals, starter_bmson["info"]["resolution"]) - 3,
+                "l": convert_to_pulses(event_value,  bpm_intervals, starter_bmson["info"]["resolution"]),
                 "c": False
             }
+            # give some space between MSS to prevent timing window overlap
+            if is_event_mss: 
+                note["l"] -= 3
             sound_channels[current_samples["P1"][event_param]]["notes"].append(note)
         elif event_type == 0x01:
             # handle event type 01 (visible note on playfield for P2)
@@ -264,9 +267,12 @@ def parse_chart(contents_dir, song_id, chart_file, chart_offset, dir_index, cont
             note = {
                 "x": event_param + 9,
                 "y": convert_to_pulses(event_offset, bpm_intervals, starter_bmson["info"]["resolution"]),
-                "l": convert_to_pulses(event_value, bpm_intervals, starter_bmson["info"]["resolution"]) - 3,
+                "l": convert_to_pulses(event_value,  bpm_intervals, starter_bmson["info"]["resolution"]),
                 "c": False
             }
+            # give some space between MSS to prevent timing window overlap
+            if is_event_mss:
+                note["l"] -= 3
             sound_channels[current_samples["P2"][event_param]]["notes"].append(note)
         elif event_type == 0x02:
             # handle event type 02 (sample change for P1)
