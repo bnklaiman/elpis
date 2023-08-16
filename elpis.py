@@ -1,6 +1,5 @@
 import json
 import os
-import pandas as pd
 import shutil
 import struct
 
@@ -16,6 +15,19 @@ columns_to_keys = {
     5: "Key 6",
     6: "Key 7",
     7: "Scratch",
+}
+
+chart_names = {
+    "0": "SP-H",
+    "1": "SP-N",
+    "2": "SP-A",
+    "3": "SP-B",
+    "4": "SP-L",
+    "6": "DP-H",
+    "7": "DP-N",
+    "8": "DP-A",
+    "9": "DP-B",
+    "10": "DP-L"
 }
 
 # initialize template bmson file
@@ -52,7 +64,7 @@ EIGHT_ZERO_BYTES = b'\x00\x00\x00\x00\x00\x00\x00\x00'
 END_OF_CHART = b'\xFF\xFF\xFF\x7F\x00\x00\x00\x00'
 
 
-def parse_chart(contents_dir, song_id, chart_file, chart_offset, dir_index, container_path):
+def parse_chart(contents_dir, song_id, db_entry, chart_file, chart_offset, dir_index, container_path):
     # handle audio container edge cases: check if the container directory exists instead of the container itself
     if container_path == "":
         container_dir = ""
@@ -76,75 +88,55 @@ def parse_chart(contents_dir, song_id, chart_file, chart_offset, dir_index, cont
                         output_path, os.path.relpath(os.path.join(root, file), container_dir)))
         
     try:
-        if (os.path.exists(os.path.join(".", "out", song_id, alt_containers[song_id][str(dir_index)]))):
-            container_path = os.path.join(".", "out", song_id, alt_containers[song_id][str(dir_index)])
+        if (os.path.exists(os.path.join(".", "out", song_id, alt_containers[song_id][chart_names[str(dir_index)]]))):
+            container_path = os.path.join(".", "out", song_id, alt_containers[song_id][chart_names[str(dir_index)]])
     except KeyError:
         print("No alternate containers found.")
 
-    audio_samples = get_audio_samples_from_container(song_id, container_path)
-
-    data = pd.read_csv("DATA_FILE", encoding="utf-8", dtype={"ID": "string"})
-    data = data.to_dict('records')
-
-    for entry in data:
-        if entry["ID"] == song_id:
-            print(
-                f"Song entry {entry['ID']} found: \"{entry['ASCII TITLE']}\"")
-            data = entry
-
-    # Since data has been reassigned, if nothing changed the right entry is not found
-    if len(data) > 16:
-        error("Song entry must exist in data file but doesn't, exiting...")
+    try:
+        audio_samples = get_audio_samples_from_container(song_id, container_path)
+    except ValueError:
+        error("ValueError: This song should use an alternate audio container, but isn't.")
 
     bmson = starter_bmson
-    bmson["info"]["title"] = sanitize_input(data["TITLE"])
-    bmson["info"]["subtitle"] = sanitize_input(data["SUBTITLE"])
-    bmson["info"]["artist"] = sanitize_input(data["ARTIST"])
-    bmson["info"]["genre"] = sanitize_input(data["GENRE"])
+    bmson["info"]["title"] = db_entry["title"]
+    bmson["info"]["artist"] = db_entry["artist"]
+    bmson["info"]["genre"] = db_entry["genre"]
     bmson["info"]["mode_hint"] = "beat-7k" if dir_index < 6 else "beat-14k"
 
-    bmson_output_filename = f"{song_id}-"
+    match dir_index:
+        case 0:
+            bmson["info"]["level"] = db_entry["SPH_level"]
+            bmson["info"]["chart_name"] = "HYPER"
+        case 1:
+            bmson["info"]["level"] = db_entry["SPN_level"]
+            bmson["info"]["chart_name"] = "NORMAL"
+        case 2:
+            bmson["info"]["level"] = db_entry["SPA_level"]
+            bmson["info"]["chart_name"] = "ANOTHER"
+        case 3:
+            bmson["info"]["level"] = db_entry["SPB_level"]
+            bmson["info"]["chart_name"] = "BEGINNER"
+        case 4:
+            bmson["info"]["level"] = db_entry["SPL_level"]
+            bmson["info"]["chart_name"] = "LEGGENDARIA"
+        case 6:
+            bmson["info"]["level"] = db_entry["DPH_level"]
+            bmson["info"]["chart_name"] = "HYPER"
+        case 7:
+            bmson["info"]["level"] = db_entry["DPN_level"]
+            bmson["info"]["chart_name"] = "NORMAL"
+        case 8:
+            bmson["info"]["level"] = db_entry["DPA_level"]
+            bmson["info"]["chart_name"] = "ANOTHER"
+        case 9:
+            bmson["info"]["level"] = db_entry["DPB_level"]
+            bmson["info"]["chart_name"] = "BEGINNER"
+        case 10:
+            bmson["info"]["level"] = db_entry["DPL_level"]
+            bmson["info"]["chart_name"] = "LEGGENDARIA"
 
-    try:
-        if dir_index == 0:
-            bmson["info"]["chart_name"] = "SP HYPER"
-            bmson["info"]["level"] = int(data["SP-H"])
-            bmson_output_filename += "SP-H.bmson"
-        elif dir_index == 1:
-            bmson["info"]["chart_name"] = "SP NORMAL"
-            bmson["info"]["level"] = int(data["SP-N"])
-            bmson_output_filename += "SP-N.bmson"
-        elif dir_index == 2:
-            bmson["info"]["chart_name"] = "SP ANOTHER"
-            bmson["info"]["level"] = int(data["SP-A"])
-            bmson_output_filename += "SP-A.bmson"
-        elif dir_index == 3:
-            bmson["info"]["chart_name"] = "SP BEGINNER"
-            bmson["info"]["level"] = int(data["SP-B"])
-            bmson_output_filename += "SP-B.bmson"
-        elif dir_index == 4:
-            bmson["info"]["chart_name"] = "SP LEGGENDARIA"
-            bmson["info"]["level"] = int(data["SP-L"])
-            bmson_output_filename += "SP-L.bmson"
-        elif dir_index == 6:
-            bmson["info"]["chart_name"] = "DP HYPER"
-            bmson["info"]["level"] = int(data["DP-H"])
-            bmson_output_filename += "DP-H.bmson"
-        elif dir_index == 7:
-            bmson["info"]["chart_name"] = "DP NORMAL"
-            bmson["info"]["level"] = int(data["DP-N"])
-            bmson_output_filename += "DP-N.bmson"
-        elif dir_index == 8:
-            bmson["info"]["chart_name"] = "DP ANOTHER"
-            bmson["info"]["level"] = int(data["DP-A"])
-            bmson_output_filename += "DP-A.bmson"
-        elif dir_index == 10:
-            bmson["info"]["chart_name"] = "DP LEGGENDARIA"
-            bmson["info"]["level"] = int(data["DP-L"])
-            bmson_output_filename += "DP-L.bmson"
-    except ValueError:
-        error("ValueError: Chart difficulty " + bmson["info"]["chart_name"] +
-              " not found! This is probably because of incomplete data, check the Remywiki page for the song listed in the error and then update the data file.")
+    bmson_output_filename = f"{song_id}-{chart_names[str(dir_index)]}.bmson"
 
     # initialize sound_channels JSON object
     sound_channels = []
@@ -170,42 +162,46 @@ def parse_chart(contents_dir, song_id, chart_file, chart_offset, dir_index, cont
         event_param = event[5]
         event_value = (event[7] << 8) | (event[6])
 
-        if event_type == 0x04:
-            # handle event type 04 (bpm change)
-            bpm = round(event_value / event_param)
-            bpm_intervals.append([event_offset, bpm])
+        match event_type:
+            case 0x04:
+                # handle event type 04 (bpm change)
+                bpm = round(event_value / event_param)
+                bpm_intervals.append([event_offset, bpm])
 
-            if bmson["info"]["init_bpm"] == 0:
-                bmson["info"]["init_bpm"] = bpm
-                bmson["bpm_events"].append({
-                    "y": convert_to_pulses(event_offset, bpm_intervals, starter_bmson["info"]["resolution"]),
-                    "bpm": bpm
-                })
-                print(
-                    f"Event at {event_offset}ms: BPM initialized to {round(event_value / event_param)}")
-            else:
-                if bpm_intervals[-1] == event_offset:
-                    print(
-                        f"BPM change event already exists at {event_offset}ms, ignoring.")
-                else:
+                if bmson["info"]["init_bpm"] == 0:
+                    bmson["info"]["init_bpm"] = bpm
                     bmson["bpm_events"].append({
                         "y": convert_to_pulses(event_offset, bpm_intervals, starter_bmson["info"]["resolution"]),
                         "bpm": bpm
                     })
                     print(
-                        f"Event at {event_offset}ms: BPM change to {round(event_value / event_param)}")
-        elif event_type == 0x07:
-            # handle event type 07 (background sample)
-            print(
-                f"Event at {event_offset}ms: Background sample {event_value - 1} (0-indexed)")
-            bgm_samples.append([event_offset, event_value - 1])
+                        f"Event at {event_offset}ms: BPM initialized to {round(event_value / event_param)}")
+                else:
+                    if bpm_intervals[-1] == event_offset:
+                        print(
+                            f"BPM change event already exists at {event_offset}ms, ignoring.")
+                    else:
+                        bmson["bpm_events"].append({
+                            "y": convert_to_pulses(event_offset, bpm_intervals, starter_bmson["info"]["resolution"]),
+                            "bpm": bpm
+                        })
+                        print(
+                            f"Event at {event_offset}ms: BPM change to {round(event_value / event_param)}")
+            case 0x07:
+                # handle event type 07 (background sample)
+                print(
+                    f"Event at {event_offset}ms: Background sample {event_value - 1} (0-indexed)")
+                bgm_samples.append([event_offset, event_value - 1])
 
         event = chart_file.read(8)
 
     # replace indices in bgm_samples with the actual files
     for i in range(len(bgm_samples)):
         index = bgm_samples[i][1]
-        bgm_samples[i][1] = sound_channels[index]["name"]
+        try:
+            bgm_samples[i][1] = sound_channels[index]["name"]
+        except IndexError:
+            error(f"IndexError: Sample index out of range for this container! This is probably the wrong container for the {chart_names[str(dir_index)]} chart.")
 
     # generate bgm track for this specific chart
     bgm_name = generate_bgm(bgm_samples, song_id, dir_index)
@@ -230,107 +226,124 @@ def parse_chart(contents_dir, song_id, chart_file, chart_offset, dir_index, cont
         event_value = (event[7] << 8) | (event[6])
 
         is_event_mss = event_param == 0x6B
-        if event_type == 0x00:
-            # handle event type 00 (visible note on playfield for P1)
-            if is_event_mss:
-                # handle Multi-Spin Scratch
-                event_param = 0x07
+        match event_type:
+            case 0x00:
+                # handle event type 00 (visible note on playfield for P1)
+                if is_event_mss:
+                    # handle Multi-Spin Scratch
+                    event_param = 0x07
+                    print(
+                        f"Event at {event_offset}ms: Multi-Spin Scratch for P1,",
+                        f"hold for {event_value}ms")
+                else:
+                    print(
+                        f"Event at {event_offset}ms: Visible note for P1:",
+                        f"{columns_to_keys[event_param]}{', hold for ' + str(event_value) + 'ms' if event_value > 0 else ''}")
+                note = {
+                    "x": event_param + 1,
+                    "y": convert_to_pulses(event_offset, bpm_intervals, starter_bmson["info"]["resolution"]),
+                    "l": convert_to_pulses(event_value,  bpm_intervals, starter_bmson["info"]["resolution"]),
+                    "c": False
+                }
+                # give some space between MSS to prevent timing window overlap
+                if is_event_mss: 
+                    note["l"] -= 3
+                
+                try:
+                    sound_channels[current_samples["P1"][event_param]]["notes"].append(note)
+                except IndexError:
+                    error(f"IndexError: Audio container not found! This is the wrong container for the {chart_names[str(dir_index)]} chart.")
+            case 0x01:
+                # handle event type 01 (visible note on playfield for P2)
+                if is_event_mss:
+                    # handle Multi-Spin Scratch
+                    event_param = 0x07
+                    print(
+                        f"Event at {event_offset}ms: Multi-Spin Scratch for P2,",
+                        f"hold for {event_value}ms")
+                else:
+                    print(
+                        f"Event at {event_offset}ms: Visible note for P2:",
+                        f"{columns_to_keys[event_param]}{', hold for ' + str(event_value) + 'ms' if event_value > 0 else ''}")
+                note = {
+                    "x": event_param + 9,
+                    "y": convert_to_pulses(event_offset, bpm_intervals, starter_bmson["info"]["resolution"]),
+                    "l": convert_to_pulses(event_value,  bpm_intervals, starter_bmson["info"]["resolution"]),
+                    "c": False
+                }
+                # give some space between MSS to prevent timing window overlap
+                if is_event_mss:
+                    note["l"] -= 3
+                
+                try:
+                    sound_channels[current_samples["P2"][event_param]]["notes"].append(note)
+                except IndexError:
+                    error(f"IndexError: Audio container not found! This is the wrong container for the {chart_names[str(dir_index)]} chart.")
+            case 0x02:
+                # handle event type 02 (sample change for P1)
+                if event_param != 8:
+                    # malformed event, discovered in song id #01002
+                    print(
+                        f"Event at {event_offset}ms: Sample change for P1:",
+                        f"{columns_to_keys[event_param]} => sample {event_value - 1} (0-indexed)")
+                    current_samples["P1"][event_param] = event_value - 1
+                else:
+                    print(f"Event at {event_offset}ms: ILLEGAL SAMPLE CHANGE for P1: Key {event_param} does not exist!")
+            case 0x03:
+                # handle event type 03 (sample change for P2)
+                if event_param != 8:
+                    # malformed event, discovered in song id #01002
+                    print(
+                        f"Event at {event_offset}ms: Sample change for P2:",
+                        f"{columns_to_keys[event_param]} => sample {event_value - 1} (0-indexed)")
+                    current_samples["P2"][event_param] = event_value - 1
+                else:
+                    print(f"Event at {event_offset}ms: ILLEGAL SAMPLE CHANGE for P2: Key {event_param} does not exist!")
+            case 0x04:
+                # we already did this, so ignore
                 print(
-                    f"Event at {event_offset}ms: Multi-Spin Scratch for P1,",
-                    f"hold for {event_value}ms")
-            else:
+                    f"Event at {event_offset}ms: BPM change, ignoring.")
+            case 0x05:
+                # handle (or more specifically, don't handle) event type 05 (meter info)
                 print(
-                    f"Event at {event_offset}ms: Visible note for P1:",
-                    f"{columns_to_keys[event_param]}{', hold for ' + str(event_value) + 'ms' if event_value > 0 else ''}")
-            note = {
-                "x": event_param + 1,
-                "y": convert_to_pulses(event_offset, bpm_intervals, starter_bmson["info"]["resolution"]),
-                "l": convert_to_pulses(event_value,  bpm_intervals, starter_bmson["info"]["resolution"]),
-                "c": False
-            }
-            # give some space between MSS to prevent timing window overlap
-            if is_event_mss: 
-                note["l"] -= 3
-            sound_channels[current_samples["P1"][event_param]]["notes"].append(note)
-        elif event_type == 0x01:
-            # handle event type 01 (visible note on playfield for P2)
-            if is_event_mss:
-                # handle Multi-Spin Scratch
-                event_param = 0x07
+                    f"Event at {event_offset}ms: Meter information, ignoring.")
+            case 0x06:
+                # handle event type 06 (end of song)
                 print(
-                    f"Event at {event_offset}ms: Multi-Spin Scratch for P2,",
-                    f"hold for {event_value}ms")
-            else:
+                    f"Event at {event_offset}ms: End of song, ignoring.")
+            case 0x07:
+                # we already did this, so ignore.
                 print(
-                    f"Event at {event_offset}ms: Visible note for P2:",
-                    f"{columns_to_keys[event_param]}{', hold for ' + str(event_value) + 'ms' if event_value > 0 else ''}")
-            note = {
-                "x": event_param + 9,
-                "y": convert_to_pulses(event_offset, bpm_intervals, starter_bmson["info"]["resolution"]),
-                "l": convert_to_pulses(event_value,  bpm_intervals, starter_bmson["info"]["resolution"]),
-                "c": False
-            }
-            # give some space between MSS to prevent timing window overlap
-            if is_event_mss:
-                note["l"] -= 3
-            sound_channels[current_samples["P2"][event_param]]["notes"].append(note)
-        elif event_type == 0x02:
-            # handle event type 02 (sample change for P1)
-            if event_param != 8:
-                # malformed event, discovered in song id #01002
+                    f"Event at {event_offset}ms: Background sample, ignoring.")
+            case 0x08:
+                # handle (or more specifically, don't handle) event type 08 (timing window info)
                 print(
-                    f"Event at {event_offset}ms: Sample change for P1:",
-                    f"{columns_to_keys[event_param]} => sample {event_value - 1} (0-indexed)")
-                current_samples["P1"][event_param] = event_value - 1
-            else:
-                print(f"Event at {event_offset}ms: ILLEGAL SAMPLE CHANGE for P1: Key {event_param} does not exist!")
-        elif event_type == 0x03:
-            # handle event type 03 (sample change for P2)
-            if event_param != 8:
-                # malformed event, discovered in song id #01002
+                    f"Event at {event_offset}ms: Timing window information, ignoring.")
+            case 0x0C:
+                # handle event type 0C (measure bar)
                 print(
-                    f"Event at {event_offset}ms: Sample change for P2:",
-                    f"{columns_to_keys[event_param]} => sample {event_value - 1} (0-indexed)")
-                current_samples["P2"][event_param] = event_value - 1
-            else:
-                print(f"Event at {event_offset}ms: ILLEGAL SAMPLE CHANGE for P2: Key {event_param} does not exist!")
-        elif event_type == 0x04:
-            # we already did this, so ignore
-            print(
-                f"Event at {event_offset}ms: BPM change, ignoring.")
-        elif event_type == 0x05:
-            # handle (or more specifically, don't handle) event type 05 (meter info)
-            print(
-                f"Event at {event_offset}ms: Meter information, ignoring.")
-        elif event_type == 0x06:
-            # handle event type 06 (end of song)
-            print(
-                f"Event at {event_offset}ms: End of song, ignoring.")
-        elif event_type == 0x07:
-            # we already did this, so ignore.
-            print(
-                f"Event at {event_offset}ms: Background sample, ignoring.")
-        elif event_type == 0x08:
-            # handle (or more specifically, don't handle) event type 08 (timing window info)
-            print(
-                f"Event at {event_offset}ms: Timing window information, ignoring.")
-        elif event_type == 0x0C:
-            # handle event type 0C (measure bar)
-            print(
-                f"Event at {event_offset}ms: Measure bar for P{event_param + 1}")
-            bmson["lines"].append({"y": convert_to_pulses(
-                event_offset, bpm_intervals, starter_bmson["info"]["resolution"])})
-        elif event_type == 0x10:
-            # handle event type 10 (note count)
-            print(
-                f"Event at {event_offset}ms: Note count for P{event_param + 1}: {event_value}")
-        else:
-            # handle unknown events
-            if event_type != 0x0D:
-                error(
-                    f"Unknown event at {event_offset}ms, type {hex(event_type)}, param {hex(event_param)} and value {hex(event_value)}.")
+                    f"Event at {event_offset}ms: Measure bar for P{event_param + 1}")
+                bmson["lines"].append({"y": convert_to_pulses(
+                    event_offset, bpm_intervals, starter_bmson["info"]["resolution"])})
+            case 0x10:
+                # handle event type 10 (note count)
+                print(
+                    f"Event at {event_offset}ms: Note count for P{event_param + 1}: {event_value}")
+            case _:
+                # handle unknown event types
+                unknown_events = [0x0B, 0x0D]
+                if event_type not in unknown_events:
+                    error(
+                        f"Unknown event at {event_offset}ms, type {hex(event_type)}, param {hex(event_param)} and value {hex(event_value)}.")
 
         event = chart_file.read(8)
+
+    # Update video delay
+    video_delay = db_entry["bga_delay"]
+    if video_delay < 0:
+        video_delay = 0
+    bmson["bga"]["bga_events"] = [{"id": 1, "y": convert_to_pulses(video_delay, bpm_intervals, starter_bmson["info"]["resolution"]) * 20}]
+
 
     print("End of chart reached.")
     bmson["sound_channels"] = sound_channels
@@ -343,7 +356,7 @@ def parse_chart(contents_dir, song_id, chart_file, chart_offset, dir_index, cont
     success(f"\'{os.path.basename(bmson_output_filename)}\' written.")
 
 
-def parse_all_charts_and_audio(contents_dir, song_id):
+def parse_all_charts_and_audio(contents_dir, song_id, db_entry):
     # create output directory if it doesn't exist yet
     output_path = f"{os.path.join('.', 'out', str(song_id))}"
     if os.path.exists(output_path):
@@ -464,7 +477,7 @@ def parse_all_charts_and_audio(contents_dir, song_id):
         # but for now, we start with the SP-HYPER chart
         for i in range(len(chart_directory)):
             if chart_directory[i] != 0:
-                parse_chart(contents_dir, song_id, chart_file,
+                parse_chart(contents_dir, song_id, db_entry, chart_file,
                             chart_directory[i], i, container_path)
 
     # we're done with source files, remove them from output directory

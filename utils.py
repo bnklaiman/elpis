@@ -1,6 +1,4 @@
-import os
 import sys
-import numpy as np
 from termcolor import cprint
 
 
@@ -15,21 +13,6 @@ def warning(text):
 def error(text):
     cprint("[!] " + text, "red")
     sys.exit()
-
-
-def to_base_36(num):
-    if num < 36:
-        return("0" + np.base_repr(num, 36))
-    else:
-        return(np.base_repr(num, 36))
-
-
-def sanitize_input(data):
-    if data != data:  # this checks for misc. NaNs
-        data = ""
-
-    data = data.replace('\xa0', ' ')
-    return data
 
 
 # For a specific offset in milliseconds and an array of bpm intervals, convert to pulses (where 1/4 note = 240 pulses)
