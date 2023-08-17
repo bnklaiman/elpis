@@ -64,6 +64,15 @@ EIGHT_ZERO_BYTES = b'\x00\x00\x00\x00\x00\x00\x00\x00'
 END_OF_CHART = b'\xFF\xFF\xFF\x7F\x00\x00\x00\x00'
 
 
+def cleanup_bmson(bmson):
+    nonempty_sound_channels = []
+    for sound_channel in bmson["sound_channels"]:
+        if sound_channel["notes"] != []:
+            nonempty_sound_channels.append(sound_channel)
+    bmson["sound_channels"] = nonempty_sound_channels
+    return bmson
+
+
 def parse_chart(contents_dir, song_id, db_entry, chart_file, chart_offset, dir_index, container_path):
     # handle audio container edge cases: check if the container directory exists instead of the container itself
     if container_path == "":
@@ -351,6 +360,7 @@ def parse_chart(contents_dir, song_id, db_entry, chart_file, chart_offset, dir_i
 
     print("End of chart reached.")
     bmson["sound_channels"] = sound_channels
+    bmson = cleanup_bmson(bmson)
     bmson_output_filename = os.path.join(
         "out", str(song_id), bmson_output_filename)
     with open(bmson_output_filename, "w", encoding="utf-8") as file:
