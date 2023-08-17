@@ -192,8 +192,8 @@ def generate_bgm(bgm_samples, song_id, dir_index):
             end_sample = start_sample + signal.shape[1]
             output_signal[:, start_sample:end_sample] += signal
         print("Torchaudio: Final pass complete.")
+        print(f"Saving to file {os.path.basename(filename)}...")
         torchaudio.save(bgm_output_location, output_signal, 44100)
-        
         print(f"File {os.path.basename(filename)} saved.")
 
     return os.path.join(str(output_folder), filename)

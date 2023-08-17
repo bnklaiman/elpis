@@ -165,7 +165,11 @@ def parse_chart(contents_dir, song_id, db_entry, chart_file, chart_offset, dir_i
         match event_type:
             case 0x04:
                 # handle event type 04 (bpm change)
-                bpm = round(event_value / event_param)
+                try:
+                    bpm = round(event_value / event_param)
+                except ZeroDivisionError:
+                    # prevent division by zero, thereby averting the implosion of the space-time continuum
+                    bpm = round(event_value)
                 bpm_intervals.append([event_offset, bpm])
 
                 if bmson["info"]["init_bpm"] == 0:
@@ -175,7 +179,7 @@ def parse_chart(contents_dir, song_id, db_entry, chart_file, chart_offset, dir_i
                         "bpm": bpm
                     })
                     print(
-                        f"Event at {event_offset}ms: BPM initialized to {round(event_value / event_param)}")
+                        f"Event at {event_offset}ms: BPM initialized to {bpm}")
                 else:
                     if bpm_intervals[-1] == event_offset:
                         print(
@@ -186,7 +190,7 @@ def parse_chart(contents_dir, song_id, db_entry, chart_file, chart_offset, dir_i
                             "bpm": bpm
                         })
                         print(
-                            f"Event at {event_offset}ms: BPM change to {round(event_value / event_param)}")
+                            f"Event at {event_offset}ms: BPM change to {bpm}")
             case 0x07:
                 # handle event type 07 (background sample)
                 print(
@@ -349,11 +353,10 @@ def parse_chart(contents_dir, song_id, db_entry, chart_file, chart_offset, dir_i
     bmson["sound_channels"] = sound_channels
     bmson_output_filename = os.path.join(
         "out", str(song_id), bmson_output_filename)
-    print(f"Writing to file \'{os.path.basename(bmson_output_filename)}\'...")
     with open(bmson_output_filename, "w", encoding="utf-8") as file:
         json.dump(bmson, file, ensure_ascii=False, sort_keys=True)
 
-    success(f"\'{os.path.basename(bmson_output_filename)}\' written.")
+    success(f"{os.path.basename(bmson_output_filename)} written.")
 
 
 def parse_all_charts_and_audio(contents_dir, song_id, db_entry):
