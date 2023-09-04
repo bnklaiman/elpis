@@ -1,10 +1,27 @@
 import os
+from pydub import AudioSegment
 import struct
 import subprocess
 import torch
 import torchaudio
+from Misc_enums import *
 
 from utils import *
+
+def is_silent(file_path, threshold_db=-60):
+    audio = AudioSegment.from_file(file_path)
+    max_amplitude_db = audio.max_dBFS
+    return max_amplitude_db <= threshold_db
+
+
+def trim_start_silence(file_path):
+    audio = AudioSegment.from_file(file_path, format="ogg")
+
+    portion_to_remove = 8  # milliseconds
+    audio_without_portion = audio[portion_to_remove:]
+
+    audio_without_portion.export(file_path, format="ogg")
+    print(f"Trimmed the first {portion_to_remove}ms of silence from {os.path.basename(file_path)}.")
 
 
 def get_audio_samples_from_container(song_id, container):
@@ -106,16 +123,21 @@ def get_audio_samples_from_container(song_id, container):
         print("All audio samples extracted.")
         for filename in os.listdir(output_path):
             if filename.endswith(".wav") or filename.endswith(".wma"):
-                sound_channels.append(convert_to_ogg_file(
-                    os.path.join(output_path, filename)))
+                sound_channels.append(convert_to_ogg_file(os.path.join(output_path, filename), song_id))
 
         sound_channels.sort()
         print("All sound channels exported.")
         return sound_channels
 
 
-def convert_to_ogg_file(infile):
+def convert_to_ogg_file(infile, song_id):
     outfile = os.path.splitext(infile)[0] + ".ogg"
+    
+    # Figure out whether to cut out the silence of converted audio files
+    should_be_trimmed = False
+
+    if song_id >= "25002" and song_id not in songs_with_s3p_to_not_trim:
+        should_be_trimmed = True
 
     # the actual conversion happens here
     if os.path.exists(outfile):
@@ -123,8 +145,16 @@ def convert_to_ogg_file(infile):
             f"Converted file {os.path.basename(outfile)} already exists, skipping...")
     else:
         print(f"Converting to {os.path.basename(outfile)}...")
-        subprocess.run(["ffmpeg", "-i", infile, "-c:a", "libvorbis",
-                        "-q:a", "9", "-v", "8", "-y", outfile], check=True)
+        
+        ffmpeg_command = ["ffmpeg", "-i", infile, "-c:a", "libvorbis", "-q:a", "9", "-shortest"]
+        if should_be_trimmed:
+            ffmpeg_command = ffmpeg_command + ["-af", "atrim=start=0.0925"]
+        ffmpeg_command = ffmpeg_command + ["-vn", "-v", "quiet", "-y", outfile]
+        subprocess.run(ffmpeg_command, check=True)
+
+        # if is_silent(outfile):
+
+    
     os.remove(infile)
 
     return os.path.join(os.path.abspath(outfile).split(os.path.sep)[-2], os.path.abspath(outfile).split(os.path.sep)[-1])

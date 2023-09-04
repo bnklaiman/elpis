@@ -1,4 +1,5 @@
 pandas
+pydub
 termcolor
 torch
 torchaudio

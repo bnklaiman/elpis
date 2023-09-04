@@ -1,34 +1,12 @@
 import json
 import os
+import re
 import shutil
 import struct
 
 from audio import get_audio_samples_from_container, generate_bgm
 from utils import *
-
-columns_to_keys = {
-    0: "Key 1",
-    1: "Key 2",
-    2: "Key 3",
-    3: "Key 4",
-    4: "Key 5",
-    5: "Key 6",
-    6: "Key 7",
-    7: "Scratch",
-}
-
-chart_names = {
-    "0": "SP-H",
-    "1": "SP-N",
-    "2": "SP-A",
-    "3": "SP-B",
-    "4": "SP-L",
-    "6": "DP-H",
-    "7": "DP-N",
-    "8": "DP-A",
-    "9": "DP-B",
-    "10": "DP-L"
-}
+from Misc_enums import *
 
 # initialize template bmson file
 starter_bmson = {
@@ -96,10 +74,11 @@ def parse_chart(contents_dir, song_id, db_entry, chart_file, chart_offset, dir_i
                     shutil.copy(os.path.join(root, file), os.path.join(
                         output_path, os.path.relpath(os.path.join(root, file), container_dir)))
         
-    try:
-        if (os.path.exists(os.path.join(".", "out", song_id, alt_containers[song_id][chart_names[str(dir_index)]]))):
+    
+    if song_id in alt_containers:
+        if chart_names[str(dir_index)] in alt_containers[song_id]:
             container_path = os.path.join(".", "out", song_id, alt_containers[song_id][chart_names[str(dir_index)]])
-    except KeyError:
+    else:
         print("No alternate containers found.")
 
     try:
@@ -262,9 +241,9 @@ def parse_chart(contents_dir, song_id, db_entry, chart_file, chart_offset, dir_i
                 if is_event_mss: 
                     note["l"] -= 3
                 
-                try:
+                if current_samples["P1"][event_param] <= len(sound_channels):
                     sound_channels[current_samples["P1"][event_param]]["notes"].append(note)
-                except IndexError:
+                else:
                     error(f"IndexError: Audio container not found! This is the wrong container for the {chart_names[str(dir_index)]} chart.")
             case 0x01:
                 # handle event type 01 (visible note on playfield for P2)
@@ -288,9 +267,9 @@ def parse_chart(contents_dir, song_id, db_entry, chart_file, chart_offset, dir_i
                 if is_event_mss:
                     note["l"] -= 3
                 
-                try:
+                if current_samples["P2"][event_param] <= len(sound_channels):
                     sound_channels[current_samples["P2"][event_param]]["notes"].append(note)
-                except IndexError:
+                else:
                     error(f"IndexError: Audio container not found! This is the wrong container for the {chart_names[str(dir_index)]} chart.")
             case 0x02:
                 # handle event type 02 (sample change for P1)
@@ -344,7 +323,6 @@ def parse_chart(contents_dir, song_id, db_entry, chart_file, chart_offset, dir_i
                     f"Event at {event_offset}ms: Note count for P{event_param + 1}: {event_value}")
             case _:
                 # handle unknown event types
-                unknown_events = [0x0B, 0x0D]
                 if event_type not in unknown_events:
                     error(
                         f"Unknown event at {event_offset}ms, type {hex(event_type)}, param {hex(event_param)} and value {hex(event_value)}.")
@@ -486,12 +464,43 @@ def parse_all_charts_and_audio(contents_dir, song_id, db_entry):
             chart_directory.append(struct.unpack("<I", chart_file.read(4))[0])
             file_offset += 8
 
-        # iterate over all charts found inside chart file
+        # iterate over all (existing) charts found inside chart file
         # but for now, we start with the SP-HYPER chart
         for i in range(len(chart_directory)):
-            if chart_directory[i] != 0:
-                parse_chart(contents_dir, song_id, db_entry, chart_file,
-                            chart_directory[i], i, container_path)
+            # Find out if a chart is not supposed to exist in the db
+            chart_level_is_zero = False
+
+            if str(i) in chart_names:
+                match (chart_names[str(i)]):
+                    case "SP-H": 
+                        if db_entry["SPH_level"] == 0: chart_level_is_zero = True
+                    case "SP-N": 
+                        if db_entry["SPN_level"] == 0: chart_level_is_zero = True
+                    case "SP-A": 
+                        if db_entry["SPA_level"] == 0: chart_level_is_zero = True
+                    case "SP-B": 
+                        if db_entry["SPB_level"] == 0: chart_level_is_zero = True
+                    case "SP-L": 
+                        if db_entry["SPL_level"] == 0: chart_level_is_zero = True
+                    case "DP-H": 
+                        if db_entry["DPH_level"] == 0: chart_level_is_zero = True
+                    case "DP-N": 
+                        if db_entry["DPN_level"] == 0: chart_level_is_zero = True
+                    case "DP-A": 
+                        if db_entry["DPA_level"] == 0: chart_level_is_zero = True
+                    case "DP-B": 
+                        if db_entry["DPB_level"] == 0: chart_level_is_zero = True
+                    case "DP-L": 
+                        if db_entry["DPL_level"] == 0: chart_level_is_zero = True
+                    case _:
+                        continue
+
+                if not chart_level_is_zero:
+                    # work around song-specific bug for SP-N and DP-N charts
+                    if song_id == '30100' and i in [1, 7]:
+                        continue
+                    parse_chart(contents_dir, song_id, db_entry, chart_file,
+                                chart_directory[i], i, container_path)
 
     # we're done with source files, remove them from output directory
     for _, _, filenames in os.walk(output_path):
@@ -500,3 +509,13 @@ def parse_all_charts_and_audio(contents_dir, song_id, db_entry):
             if extension == ".1" or extension == ".2dx" or extension == ".s3p":
                 os.remove(os.path.join(output_path, file))
                 print(f"{file} deleted.")
+
+    # append ASCII title to folder
+    safe_folder_name = output_path + " - " + db_entry["title_ascii"]
+    # replace reserved characters with underscore
+    reserved_chars = r'[<>:"\\|?*]'
+    safe_folder_name = re.sub(reserved_chars, '_', safe_folder_name)
+    # remove trailing dots and spaces
+    safe_folder_name = "." + safe_folder_name.rstrip('. ').lstrip('. ')
+    os.rename(output_path, safe_folder_name)
+    success(f"Renamed output directory to {os.path.basename(safe_folder_name)}.")
