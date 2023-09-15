@@ -89,7 +89,7 @@ Since this is a library this is not meant to be "run". Due to the necessary use 
 
 ## Credit where it's due:
 - Original inspiration: GitHub user SaxxonPike's [scharfricter](https://github.com/SaxxonPike/scharfrichter)
-- Chart file information: [this page](https://github.com/SaxxonPike/rhythm-game-formats/blob/master/iidx/1.md) in the above repo, my edited version of which you can find in the `docs` folder.
+- Chart file information: [this page](https://github.com/SaxxonPike/rhythm-game-formats/blob/master/iidx/1.md) in the above repo, my edited version of which you can find in the `doc` folder.
 - Audio container information: GitHub user hannahherbig's [2dxrender](https://github.com/hannahherbig/2dxrender)
     - Handling of audio containers is optimized from separate C# implementations in the above repo.
 ### Ultra-special thanks to:
