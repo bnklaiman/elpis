@@ -13,7 +13,7 @@ The name comes from the first song I tested this with, [ΕΛΠΙΣ (pronounced "
 ## How does it work?
 We can break down the process of conversion into several phases, as follows:
 
-### 1. Asset Retrieval (in this case from the test directory)
+### 1. Asset retrieval (in this case from the test directory)
 ![](doc/code01.png)
 
 ### 2. Extracting audio files from containers (serialized, not archived)
