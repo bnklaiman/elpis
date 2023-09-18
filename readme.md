@@ -24,7 +24,7 @@ We can break down the process of conversion into several phases, as follows:
 ![](doc/code03.png)
 
 ### 3. Converting extracted files to .ogg to save space while preserving audio quality
-Already-extracted files are automatically skipped to save time.
+Already-converted files are automatically skipped to save time.
 
 ![](doc/code04.png)
 
@@ -34,7 +34,7 @@ Already-extracted files are automatically skipped to save time.
 
 ### 4. Background audio parsing
 
-Here's where things get interesting. In the original games, unused audio samples are played in the background when they are supposed to on their own dedicated audio channels. However, as I discovered the hard way, the BMSON format only allows for one background audio track at a time. So we need to merge *all* of the background audio together to make it BMSON-compliant, using Torchaudio as my tool of choice. It helps that we don't need to mess with the timing here because both the original games and Torchaudio work in metric (seconds).
+Here's where things get interesting. In the original games, unused foreground audio samples are played in the background as hidden note objects on their own dedicated audio channels. However, as I discovered the hard way, the BMSON format only allows for one background audio track at a time. So we need to merge *all* of the background audio together to make it BMSON-compliant, using Torchaudio as my tool of choice. It helps that we don't need to mess with the timing here because both the original games and Torchaudio work in metric (seconds).
 
 To start off, we make a record of which background audio samples happen at what time(s).
 
