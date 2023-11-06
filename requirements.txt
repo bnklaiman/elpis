@@ -1,6 +1,5 @@
-pandas
+numpy
 pydub
 termcolor
-torch
-torchaudio
-soundfile
+torch==2.0.0
+torchaudio==2.0.1

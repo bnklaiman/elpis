@@ -24,7 +24,7 @@ def trim_start_silence(file_path):
     print(f"Trimmed the first {portion_to_remove}ms of silence from {os.path.basename(file_path)}.")
 
 
-def get_audio_samples_from_container(song_id, container):
+def get_audio_samples_from_container(song_id, container, volume_multiplier=1):
     print(f"Looking at file {container} in song id #{song_id}")
 
     [container_id, container_extension] = os.path.basename(
@@ -123,14 +123,14 @@ def get_audio_samples_from_container(song_id, container):
         print("All audio samples extracted.")
         for filename in os.listdir(output_path):
             if filename.endswith(".wav") or filename.endswith(".wma"):
-                sound_channels.append(convert_to_ogg_file(os.path.join(output_path, filename), song_id))
+                sound_channels.append(convert_to_ogg_file(os.path.join(output_path, filename), song_id, volume_multiplier))
 
         sound_channels.sort()
         print("All sound channels exported.")
         return sound_channels
 
 
-def convert_to_ogg_file(infile, song_id):
+def convert_to_ogg_file(infile, song_id, volume_multiplier):
     outfile = os.path.splitext(infile)[0] + ".ogg"
     
     # Figure out whether to cut out the silence of converted audio files
@@ -146,7 +146,7 @@ def convert_to_ogg_file(infile, song_id):
     else:
         print(f"Converting to {os.path.basename(outfile)}...")
         
-        ffmpeg_command = ["ffmpeg", "-i", infile, "-c:a", "libvorbis", "-q:a", "9", "-shortest"]
+        ffmpeg_command = ["ffmpeg", "-i", infile, "-filter:a", f"volume={volume_multiplier}", "-c:a", "libvorbis", "-q:a", "9", "-shortest"]
         if should_be_trimmed:
             ffmpeg_command = ffmpeg_command + ["-af", "atrim=start=0.0925"]
         ffmpeg_command = ffmpeg_command + ["-vn", "-v", "quiet", "-y", outfile]
@@ -223,7 +223,7 @@ def generate_bgm(bgm_samples, song_id, dir_index):
             output_signal[:, start_sample:end_sample] += signal
         print("Torchaudio: Final pass complete.")
         print(f"Saving to file {os.path.basename(filename)}...")
-        torchaudio.save(bgm_output_location, output_signal, 44100)
+        torchaudio.save(bgm_output_location, output_signal, 44100, True, 9, "ogg")
         print(f"File {os.path.basename(filename)} saved.")
 
     return os.path.join(str(output_folder), filename)

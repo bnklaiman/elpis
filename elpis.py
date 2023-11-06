@@ -82,7 +82,7 @@ def parse_chart(contents_dir, song_id, db_entry, chart_file, chart_offset, dir_i
         print("No alternate containers found.")
 
     try:
-        audio_samples = get_audio_samples_from_container(song_id, container_path)
+        audio_samples = get_audio_samples_from_container(song_id, container_path, db_entry["volume"] / 100)
     except ValueError:
         error("ValueError: This song should use an alternate audio container, but isn't.")
 
